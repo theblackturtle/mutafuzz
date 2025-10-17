@@ -1,0 +1,114 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.theblackturtle.mutafuzz'
+version = '1.0'
+sourceCompatibility = JavaVersion.VERSION_21
+targetCompatibility = JavaVersion.VERSION_21
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation files('./libs/SwingUtils-1.0-SNAPSHOT.jar')
+
+    // https://mvnrepository.com/artifact/com.fifesoft/rsyntaxtextarea
+    implementation("com.fifesoft:rsyntaxtextarea:3.6.0")
+
+    // https://mvnrepository.com/artifact/net.portswigger.burp.extensions/montoya-api
+    implementation("net.portswigger.burp.extensions:montoya-api:2025.8")
+
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-pool2
+    implementation 'org.apache.commons:commons-pool2:2.12.1'
+
+    // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.5")
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation 'org.slf4j:slf4j-api:2.0.17'
+
+    // https://mvnrepository.com/artifact/ch.qos.logback/logback-core
+    implementation 'ch.qos.logback:logback-core:1.5.17'
+
+    // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+    implementation 'ch.qos.logback:logback-classic:1.5.17'
+
+    implementation 'org.python:jython-standalone:2.7.0'
+
+    implementation 'org.swinglabs.swingx:swingx-all:1.6.5-1'
+
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.18.2'
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-annotations
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.18.2'
+    
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.datatype/jackson-datatype-jsr310
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+
+    // https://mvnrepository.com/artifact/org.projectlombok/lombok
+    implementation 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.1.1'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.1.1'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/java'
+        }
+        resources {
+            srcDir 'src/main/resources'
+        }
+    }
+    test {
+        java {
+            srcDir 'src/test/java'
+        }
+        resources {
+            srcDir 'src/test/resources'
+        }
+    }
+}
+
+// Add duplicate strategy for processResources task
+tasks.withType(ProcessResources) {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+
+task fatJar(type: Jar) {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    zip64 = true
+    from sourceSets.main.output
+
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    with jar
+}
+
+
+
+tasks {
+    "build" {
+        dependsOn(fatJar)
+    }
+}
+
+tasks.test {
+    useJUnitPlatform()
+}

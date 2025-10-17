@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console Appender -->
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n
+			</pattern>
+		</encoder>
+	</appender>
+    
+    <!-- File Appender -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/application.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>50MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+     
+    <!-- Tắt tất cả các logger mặc định -->
+    <logger name="root" level="OFF" />
+    <logger name="org.springframework" level="OFF" />
+    <logger name="org.hibernate" level="OFF" />
+    <logger name="org.apache.hc.client5" level="OFF" />
+    
+    <!-- Chỉ bật logger cho package của ứng dụng -->
+    <logger name="com.theblackturtle.mutafuzz" level="OFF" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </logger>
+    
+    <!-- Root Logger - tắt tất cả các log khác -->
+    <root level="OFF">
+        <appender-ref ref="CONSOLE" />
+        <!-- <appender-ref ref="FILE" /> -->
+    </root>
+</configuration>

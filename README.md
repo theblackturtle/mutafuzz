@@ -21,6 +21,10 @@ MutaFuzz is a powerful Burp Suite extension that brings **Python scripting** to 
 - **Multi-Instance Dashboard** - Run multiple fuzzing sessions simultaneously
 - **Advanced Filtering** - Custom columns, complex queries, and smart result management
 
+### Demo
+
+![Demo](videos/simple-fuzzing-demo.gif)
+
 > **[📚 Read the full documentation at docs.mutafuzz.com →](https://docs.mutafuzz.com)**
 
 ## Table of Contents

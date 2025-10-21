@@ -15,14 +15,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Wraps HTTP request/response pairs for fuzzing operations with table display and Python script access.
- * Provides convenience methods for response analysis, WAF detection, and property-style access for scripting.
+ * Wraps HTTP request/response pairs for fuzzing operations with table display
+ * and Python script access.
+ * Provides convenience methods for response analysis, WAF detection, and
+ * property-style access for scripting.
  */
 public class RequestObject extends SimpleRequestRowObject {
     @Getter
     private final int sourceFuzzerId;
     @Getter
-    private final HttpRequest httpRequest;
+    private HttpRequest httpRequest;
     @Getter
     private HttpResponse httpResponse;
 
@@ -121,6 +123,15 @@ public class RequestObject extends SimpleRequestRowObject {
         this.responseTime = httpRequestResponse.timingData().isPresent()
                 ? httpRequestResponse.timingData().get().timeBetweenRequestSentAndStartOfResponse().toMillis()
                 : 0L; // Initialize mutable field
+    }
+
+    public void copyToTempFile() {
+        if (this.httpRequest != null) {
+            this.httpRequest = this.httpRequest.copyToTempFile();
+        }
+        if (this.httpResponse != null) {
+            this.httpResponse = this.httpResponse.copyToTempFile();
+        }
     }
 
     @Override

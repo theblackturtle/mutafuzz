@@ -32,8 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 /**
- * Displays fuzzer results in a sortable table with request/response viewer and context menu actions.
- * Supports adding, filtering, and removing requests with wildcard pattern matching.
+ * Displays fuzzer results in a sortable table with request/response viewer and
+ * context menu actions.
+ * Supports adding, filtering, and removing requests with wildcard pattern
+ * matching.
  */
 public class LogTablePanel extends JPanel {
     private static final Logger LOGGER = LoggerFactory.getLogger(LogTablePanel.class);
@@ -228,6 +230,8 @@ public class LogTablePanel extends JPanel {
         }
 
         try {
+            // For long-term usage
+            request.copyToTempFile();
             tableModel.addRequest(request);
             LOGGER.trace("Added request to log table: {} ({})", request.getUrl(), identifier);
         } catch (Exception e) {

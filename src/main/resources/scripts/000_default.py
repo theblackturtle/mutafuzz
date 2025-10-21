@@ -78,7 +78,7 @@ def queue_tasks():
         payload = "A" * (1000 + i)
         fuzz.payloads([payload] * marker_count).learn_group(5).queue()
 
-    time.sleep(0.5)
+    time.sleep(2)
 
     # Main fuzzing phase with payload transformations
     if marker_count > 1:

@@ -23,7 +23,13 @@ MutaFuzz is a powerful Burp Suite extension that brings **Python scripting** to 
 
 ### Demo
 
+**Single Request Fuzzing:**
+
 ![Demo](videos/simple-fuzzing-demo.gif)
+
+**Request List Fuzzing:**
+
+![Demo](videos/simple-list-of-urls-demo.gif)
 
 > **[📚 Read the full documentation at docs.mutafuzz.com →](https://docs.mutafuzz.com)**
 

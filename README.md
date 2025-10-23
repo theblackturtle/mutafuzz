@@ -31,6 +31,10 @@ MutaFuzz is a powerful Burp Suite extension that brings **Python scripting** to 
 
 ![Demo](videos/simple-list-of-urls-demo.gif)
 
+**Parameter Fuzzing with Advanced Filtering:**
+
+![Demo](videos/simple-params-fuzzing.gif)
+
 > **[📚 Read the full documentation at docs.mutafuzz.com →](https://docs.mutafuzz.com)**
 
 ## Table of Contents

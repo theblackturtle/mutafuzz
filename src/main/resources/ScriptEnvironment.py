@@ -7,7 +7,7 @@ import string
 # Variables injected by Java PythonScriptExecutor at runtime:
 # - burp_api: MontoyaApi instance
 # - handler: PythonScriptBridge instance
-# - _wordlist_1, _wordlist_2, _wordlist_3: Configured wordlists
+# - wordlists: List of wordlists (access via payloads.wordlist(n))
 # - _java_raw_http_list: HttpRequestResponse list (RAW_HTTP_LIST mode)
 
 _should_stop = False
@@ -327,35 +327,28 @@ class payloads:
 
     @staticmethod
     def wordlist(num):
-        """Get wordlist 1, 2, or 3."""
-        if num == 1:
-            return payloads._get_payloads_1()
-        elif num == 2:
-            return payloads._get_payloads_2()
-        elif num == 3:
-            return payloads._get_payloads_3()
+        """Get wordlist by 1-based index. Returns empty list if out of bounds."""
+        if wordlists is None:
+            return []
+        index = num - 1
+        if 0 <= index < len(wordlists):
+            return wordlists[index] if wordlists[index] is not None else []
         return []
 
     @staticmethod
+    def count():
+        """Get number of configured wordlists."""
+        return len(wordlists) if wordlists is not None else 0
+
+    @staticmethod
     def all():
-        """Get all wordlists combined."""
+        """Get all wordlists combined into single list."""
         result = []
-        result.extend(payloads._get_payloads_1())
-        result.extend(payloads._get_payloads_2())
-        result.extend(payloads._get_payloads_3())
+        if wordlists is not None:
+            for wl in wordlists:
+                if wl is not None:
+                    result.extend(wl)
         return result
-
-    @staticmethod
-    def _get_payloads_1():
-        return _wordlist_1 if _wordlist_1 is not None else []
-
-    @staticmethod
-    def _get_payloads_2():
-        return _wordlist_2 if _wordlist_2 is not None else []
-
-    @staticmethod
-    def _get_payloads_3():
-        return _wordlist_3 if _wordlist_3 is not None else []
 
 
 class templates:

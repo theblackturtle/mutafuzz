@@ -3,128 +3,188 @@ package com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.http.message.responses.analysis.AttributeType;
 import burp.api.montoya.http.message.responses.analysis.ResponseVariationsAnalyzer;
-
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.zip.CRC32;
 
 /**
  * Analyzes HTTP response variations to identify stable (invariant) and changing (variant)
- * attributes across multiple responses. Used for wildcard pattern matching by learning
- * which response characteristics remain consistent and should be used for filtering.
+ * attributes across multiple responses. Uses a unified Map for both Burp SDK attributes and custom
+ * attributes (CRC32 hashes of first/last 100 bytes).
  */
 public class VariationsAnalyzer implements ResponseVariationsAnalyzer {
-    /** Baseline attribute values from initial or learned responses */
-    private HashMap<AttributeType, Integer> base;
 
-    /** Attributes that have been observed to change across responses */
-    private Set<AttributeType> variantAttributes;
+  private static final int HASH_BYTES_LENGTH = 100;
 
-    /** Attributes that remain consistent across all observed responses */
-    private Set<AttributeType> invariantAttributes;
+  private static final AttributeType[] BURP_ATTRIBUTES = {
+    AttributeType.STATUS_CODE,
+    AttributeType.CONTENT_LENGTH,
+    AttributeType.CONTENT_TYPE,
+    AttributeType.LOCATION,
+    AttributeType.ETAG_HEADER,
+    AttributeType.LAST_MODIFIED_HEADER,
+    AttributeType.COOKIE_NAMES,
+    AttributeType.WORD_COUNT,
+    AttributeType.INITIAL_CONTENT,
+    AttributeType.PAGE_TITLE,
+    AttributeType.FIRST_HEADER_TAG,
+    AttributeType.LINE_COUNT,
+    AttributeType.LIMITED_BODY_CONTENT,
+    AttributeType.OUTBOUND_EDGE_COUNT,
+    AttributeType.CONTENT_LOCATION
+  };
 
-    public VariationsAnalyzer() {
+  private HashMap<String, Integer> base;
+  private Set<String> variantAttributes;
+  private Set<String> invariantAttributes;
+
+  public VariationsAnalyzer() {}
+
+  /**
+   * Releases all resources held by this analyzer. Should be called when the analyzer is no longer
+   * needed to prevent memory leaks.
+   */
+  public void cleanUp() {
+    if (base != null) {
+      base.clear();
+      base = null;
     }
+    if (variantAttributes != null) {
+      variantAttributes.clear();
+    }
+    if (invariantAttributes != null) {
+      invariantAttributes.clear();
+    }
+  }
 
-    /**
-     * Releases all resources held by this analyzer.
-     * Should be called when the analyzer is no longer needed to prevent memory leaks.
-     */
-    public void cleanUp() {
-        if (base != null) {
-            base.clear();
-            base = null;
+  /**
+   * Returns the set of Burp AttributeType that have been observed to vary across responses. Custom
+   * attributes are not included as they cannot be converted to AttributeType.
+   *
+   * @return set of variant Burp attribute types
+   */
+  @Override
+  public Set<AttributeType> variantAttributes() {
+    Set<AttributeType> result = new HashSet<>();
+    if (variantAttributes != null) {
+      for (String key : variantAttributes) {
+        try {
+          result.add(AttributeType.valueOf(key));
+        } catch (IllegalArgumentException ignored) {
+          // Custom attribute - skip
         }
-        if (variantAttributes != null) {
-            variantAttributes.clear();
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Returns the set of Burp AttributeType that remain consistent across all observed responses.
+   * Custom attributes are not included as they cannot be converted to AttributeType.
+   *
+   * @return set of invariant Burp attribute types
+   */
+  @Override
+  public Set<AttributeType> invariantAttributes() {
+    Set<AttributeType> result = new HashSet<>();
+    if (invariantAttributes != null) {
+      for (String key : invariantAttributes) {
+        try {
+          result.add(AttributeType.valueOf(key));
+        } catch (IllegalArgumentException ignored) {
+          // Custom attribute - skip
         }
-        if (invariantAttributes != null) {
-            invariantAttributes.clear();
-        }
+      }
+    }
+    return result;
+  }
 
+  /**
+   * Updates the analyzer with a new response, refining the understanding of which attributes are
+   * invariant. On first call, establishes baseline values. Subsequent calls identify attributes
+   * that differ from baseline and mark them as variant.
+   *
+   * @param response HTTP response to analyze and learn from
+   */
+  @Override
+  public void updateWith(HttpResponse response) {
+    HashMap<String, Integer> attrs = extractAllAttributes(response);
+
+    if (base == null) {
+      base = new HashMap<>(attrs);
+      invariantAttributes = new HashSet<>(attrs.keySet());
+      variantAttributes = new HashSet<>();
+      return;
     }
 
-    /**
-     * Returns the set of attributes that have been observed to vary across responses.
-     *
-     * @return set of variant attribute types
-     */
-    @Override
-    public Set<AttributeType> variantAttributes() {
-        return variantAttributes;
+    HashSet<String> newInvariant = new HashSet<>();
+    for (String key : invariantAttributes) {
+      if (Objects.equals(base.get(key), attrs.get(key))) {
+        newInvariant.add(key);
+      } else {
+        variantAttributes.add(key);
+      }
+    }
+    invariantAttributes = newInvariant;
+  }
+
+  /**
+   * Checks if a response matches the learned pattern by comparing all invariant attributes against
+   * the baseline values.
+   *
+   * @param httpResponse response to check for similarity
+   * @return true if all invariant attributes match the baseline values
+   */
+  public boolean isSimilar(HttpResponse httpResponse) {
+    if (invariantAttributes == null || invariantAttributes.isEmpty()) {
+      return true;
     }
 
-    /**
-     * Returns the set of attributes that remain consistent across all observed responses.
-     * These attributes form the basis for similarity matching.
-     *
-     * @return set of invariant attribute types
-     */
-    @Override
-    public Set<AttributeType> invariantAttributes() {
-        return invariantAttributes;
+    HashMap<String, Integer> attrs = extractAllAttributes(httpResponse);
+
+    for (String key : invariantAttributes) {
+      if (!Objects.equals(base.get(key), attrs.get(key))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static int computeCrc32(byte[] data) {
+    CRC32 crc = new CRC32();
+    crc.update(data);
+    return (int) crc.getValue();
+  }
+
+  private static HashMap<String, Integer> extractAllAttributes(HttpResponse response) {
+    HashMap<String, Integer> attrs = new HashMap<>();
+
+    // Extract Burp attributes
+    if (response != null) {
+      response
+          .attributes(BURP_ATTRIBUTES)
+          .forEach(attr -> attrs.put(attr.type().name(), attr.value()));
     }
 
-    /**
-     * Updates the analyzer with a new response, refining the understanding of which
-     * attributes are invariant. On first call, establishes baseline values. Subsequent
-     * calls identify attributes that differ from baseline and mark them as variant.
-     *
-     * @param response HTTP response to analyze and learn from
-     */
-    @Override
-    public void updateWith(HttpResponse response) {
-        HashMap<AttributeType, Integer> attrs = response.attributes(WildcardFilter.toAnalyzeAttributes).stream()
-                .collect(HashMap::new, (m, v) -> m.put(v.type(), v.value()), HashMap::putAll);
-        if (base == null) {
-            base = new HashMap<>();
-            for (AttributeType attributeType : WildcardFilter.toAnalyzeAttributes) {
-                base.put(attributeType, attrs.get(attributeType));
-            }
-            invariantAttributes = base.keySet();
-            variantAttributes = new HashSet<>();
-            return;
-        }
+    // Extract custom attributes (CRC32 hash)
+    byte[] body =
+        (response != null && response.body() != null) ? response.body().getBytes() : new byte[0];
 
-        HashMap<AttributeType, Integer> generatedFingerprint = new HashMap<>();
-        for (AttributeType attributeType : invariantAttributes) {
-            if (base.get(attributeType).equals(attrs.get(attributeType))) {
-                generatedFingerprint.put(attributeType, attrs.get(attributeType));
-            } else {
-                variantAttributes.add(attributeType);
-            }
-        }
-        invariantAttributes = generatedFingerprint.keySet();
+    if (body.length > 0) {
+      int firstLen = Math.min(HASH_BYTES_LENGTH, body.length);
+      attrs.put("FIRST_100_BYTES_HASH", computeCrc32(Arrays.copyOf(body, firstLen)));
+
+      int lastLen = Math.min(HASH_BYTES_LENGTH, body.length);
+      int start = body.length - lastLen;
+      attrs.put("LAST_100_BYTES_HASH", computeCrc32(Arrays.copyOfRange(body, start, body.length)));
+    } else {
+      attrs.put("FIRST_100_BYTES_HASH", 0);
+      attrs.put("LAST_100_BYTES_HASH", 0);
     }
 
-    /**
-     * Returns the baseline value for the specified attribute type.
-     *
-     * @param attributeType the attribute type to query
-     * @return baseline value for this attribute
-     */
-    public int getAttributeValue(AttributeType attributeType) {
-        return base.get(attributeType);
-    }
-
-    /**
-     * Checks if a response matches the learned pattern by comparing its invariant
-     * attributes against the baseline values.
-     *
-     * @param httpResponse response to check for similarity
-     * @return true if all invariant attributes match the baseline values
-     */
-    public boolean isSimilar(HttpResponse httpResponse) {
-        HashMap<AttributeType, Integer> attributes = httpResponse
-                .attributes(invariantAttributes.toArray(new AttributeType[0])).stream()
-                .collect(HashMap::new, (m, v) -> m.put(v.type(), v.value()), HashMap::putAll);
-
-        for (AttributeType invariantAttribute : invariantAttributes) {
-            if (!Objects.equals(base.get(invariantAttribute), attributes.get(invariantAttribute))) {
-                return false;
-            }
-        }
-        return true;
-    }
+    return attrs;
+  }
 }

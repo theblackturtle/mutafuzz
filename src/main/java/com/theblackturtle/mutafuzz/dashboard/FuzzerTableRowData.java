@@ -4,8 +4,8 @@ import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 
 /**
- * Represents a fuzzer's current status in the dashboard table.
- * Captures fuzzer ID, name, state, result counts, and progress information.
+ * Represents a fuzzer's current status in the dashboard table. Captures fuzzer ID, name, state,
+ * result counts, and progress information.
  */
 public class FuzzerTableRowData {
 
@@ -34,9 +34,7 @@ public class FuzzerTableRowData {
     this.stateDisplayText = stateDisplayText;
   }
 
-  /**
-   * Creates row data snapshot from panel's current state.
-   */
+  /** Creates row data snapshot from panel's current state. */
   public static FuzzerTableRowData fromPanel(HttpFuzzerPanel panel) {
     FuzzerState state = panel.getFuzzerState();
     return new FuzzerTableRowData(

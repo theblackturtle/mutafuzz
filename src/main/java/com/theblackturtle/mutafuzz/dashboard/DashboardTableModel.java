@@ -1,7 +1,5 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import javax.swing.table.AbstractTableModel;
-
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
@@ -9,11 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import javax.swing.table.AbstractTableModel;
 
 /**
- * Manages fuzzer session data for dashboard table display.
- * Tracks fuzzer status, progress, and results with thread-safe updates and
- * property change notifications.
+ * Manages fuzzer session data for dashboard table display. Tracks fuzzer status, progress, and
+ * results with thread-safe updates and property change notifications.
  */
 public class DashboardTableModel extends AbstractTableModel {
 
@@ -28,9 +26,7 @@ public class DashboardTableModel extends AbstractTableModel {
     super();
   }
 
-  /**
-   * Adds fuzzer row data to table and notifies observers.
-   */
+  /** Adds fuzzer row data to table and notifies observers. */
   public void addRow(FuzzerTableRowData rowData) {
     if (rowData != null) {
       int rowIndex = allData.size();
@@ -41,9 +37,7 @@ public class DashboardTableModel extends AbstractTableModel {
     }
   }
 
-  /**
-   * Removes fuzzer row by ID and notifies observers.
-   */
+  /** Removes fuzzer row by ID and notifies observers. */
   public void removeRow(int fuzzerId) {
     Integer rowIndex = fuzzerIdToRowIndex.get(fuzzerId);
     if (rowIndex != null && rowIndex >= 0 && rowIndex < allData.size()) {
@@ -55,9 +49,7 @@ public class DashboardTableModel extends AbstractTableModel {
     }
   }
 
-  /**
-   * Updates existing fuzzer row data and notifies observers.
-   */
+  /** Updates existing fuzzer row data and notifies observers. */
   public void updateRow(FuzzerTableRowData rowData) {
     if (rowData != null) {
       Integer rowIndex = fuzzerIdToRowIndex.get(rowData.getFuzzerId());
@@ -69,16 +61,12 @@ public class DashboardTableModel extends AbstractTableModel {
     }
   }
 
-  /**
-   * Returns defensive copy to prevent external modification.
-   */
+  /** Returns defensive copy to prevent external modification. */
   public List<FuzzerTableRowData> getAllRows() {
     return new ArrayList<>(allData);
   }
 
-  /**
-   * Gets row data by fuzzer ID.
-   */
+  /** Gets row data by fuzzer ID. */
   public FuzzerTableRowData getRowById(int fuzzerId) {
     Integer rowIndex = fuzzerIdToRowIndex.get(fuzzerId);
     if (rowIndex != null && rowIndex >= 0 && rowIndex < allData.size()) {
@@ -87,16 +75,12 @@ public class DashboardTableModel extends AbstractTableModel {
     return null;
   }
 
-  /**
-   * Checks if fuzzer ID exists in table.
-   */
+  /** Checks if fuzzer ID exists in table. */
   public boolean containsId(int fuzzerId) {
     return fuzzerIdToRowIndex.containsKey(fuzzerId);
   }
 
-  /**
-   * Removes all rows and notifies observers.
-   */
+  /** Removes all rows and notifies observers. */
   public void clearAllRows() {
     if (!allData.isEmpty()) {
       int size = allData.size();
@@ -107,9 +91,7 @@ public class DashboardTableModel extends AbstractTableModel {
     }
   }
 
-  /**
-   * Rebuilds index map after removal to maintain correct row indices.
-   */
+  /** Rebuilds index map after removal to maintain correct row indices. */
   private void rebuildIndexMap() {
     fuzzerIdToRowIndex.clear();
     for (int i = 0; i < allData.size(); i++) {
@@ -183,5 +165,4 @@ public class DashboardTableModel extends AbstractTableModel {
   public boolean isCellEditable(int rowIndex, int columnIndex) {
     return false;
   }
-
 }

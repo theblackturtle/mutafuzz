@@ -25,18 +25,10 @@ jobs:
       - name: Build fat JAR
         run: ./gradlew fatJar
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Rename JAR
-        run: |
-          mv build/libs/*.jar build/libs/mutafuzz-${{ steps.get_version.outputs.VERSION }}.jar
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/mutafuzz-${{ steps.get_version.outputs.VERSION }}.jar
+          files: build/libs/*.jar
           generate_release_notes: true
           draft: false
           prerelease: false

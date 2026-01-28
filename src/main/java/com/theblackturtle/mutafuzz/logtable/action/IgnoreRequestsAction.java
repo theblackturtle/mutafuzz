@@ -61,7 +61,6 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
 
   @Override
   public void actionPerformed(RequestTableActionContext<RequestObject> context) {
-    // Safe cast: RequestTable is typed with RequestObject
     List<RequestObject> requests = context.getSelectedRows();
 
     if (requests.isEmpty()) {
@@ -69,7 +68,6 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
       return;
     }
 
-    // Create and execute background worker
     IgnoreWorker worker = new IgnoreWorker(context.getJTable(), requests);
     worker.execute();
   }
@@ -87,10 +85,6 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
     protected Void doInBackground() throws Exception {
       LOGGER.debug("Starting ignore operation for {} requests", requests.size());
 
-      // Get next learn ID for batch
-      int nextLearnId = filter.getNextLearnId(WildcardFilter.USER_INPUT_KEY);
-
-      // Process each request
       for (int i = 0; i < requests.size(); i++) {
         if (isCancelled() || isUserCancelled()) {
           LOGGER.debug("Ignore operation cancelled at {}/{}", i, requests.size());
@@ -100,15 +94,12 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
         RequestObject request = requests.get(i);
 
         try {
-          // Add to wildcard filter
-          filter.addWildcard(WildcardFilter.USER_INPUT_KEY, nextLearnId, request);
-          LOGGER.debug("Added wildcard pattern for {}", request.getUrl());
-
+          filter.addUserPattern(request);
+          LOGGER.debug("Added user pattern for {}", request.getUrl());
         } catch (Exception e) {
-          LOGGER.error("Failed to add wildcard for {}", request.getUrl(), e);
+          LOGGER.error("Failed to add user pattern for {}", request.getUrl(), e);
         }
 
-        // Update progress
         updateProgress(i + 1, String.format("Ignored %d/%d requests", i + 1, requests.size()));
       }
 
@@ -117,14 +108,13 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
 
     @Override
     protected void done() {
-      super.done(); // Cleanup progress monitor
+      super.done();
 
       if (isCancelled()) {
         LOGGER.info("Ignore operation cancelled by user");
       } else {
         LOGGER.info("Ignore operation completed successfully");
 
-        // Trigger table refresh on EDT
         if (onFilterChanged != null) {
           SwingUtilities.invokeLater(
               () -> {

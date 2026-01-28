@@ -3,7 +3,6 @@ package com.theblackturtle.mutafuzz.httpfuzzer.engine;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.theblackturtle.mutafuzz.httpclient.HTTPRequesterInterface;
-import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,10 +199,6 @@ public class FuzzerTask implements Runnable {
     // Error counter is incremented in postTaskExecution() when normalTermination=false
   }
 
-  private boolean shouldCheckWildcard(HttpFuzzerEngine parent) {
-    return parent.getWildcardFilter().keyExists(WildcardFilter.USER_INPUT_KEY);
-  }
-
   private void handleResponse(RequestObject requestObject, HttpFuzzerEngine parent) {
     if (parent == null) {
       LOGGER.error("Task #{}: Parent is null in handleResponse, cannot process response", id);
@@ -212,16 +207,12 @@ public class FuzzerTask implements Runnable {
 
     try {
       if (learn > 0) {
+        // Learn mode: add to learn patterns
         LOGGER.debug("Task #{}: Processing learning request (learn={})", id, learn);
-        parent.getWildcardFilter().addWildcard(String.valueOf(learn), learn, requestObject);
+        parent.getWildcardFilter().addLearnPattern(learn, requestObject);
       } else {
-        boolean interesting = true;
-
-        if (shouldCheckWildcard(parent)) {
-          interesting =
-              !parent.getWildcardFilter().isWildcard(WildcardFilter.USER_INPUT_KEY, requestObject);
-        }
-
+        // Normal mode: check against all patterns
+        boolean interesting = !parent.getWildcardFilter().isWildcard(requestObject);
         requestObject.setInteresting(interesting);
         parent.invokeCallback(requestObject);
       }

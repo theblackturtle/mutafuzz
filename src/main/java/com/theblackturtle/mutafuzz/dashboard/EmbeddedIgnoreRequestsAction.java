@@ -143,8 +143,6 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
           continue;
         }
 
-        int nextLearnId = filter.getNextLearnId(WildcardFilter.USER_INPUT_KEY);
-
         for (RequestObject request : fuzzerRequests) {
           if (isCancelled() || isUserCancelled()) {
             LOGGER.debug("Ignore operation cancelled at {}/{}", processedCount, requests.size());
@@ -152,11 +150,11 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
           }
 
           try {
-            filter.addWildcard(WildcardFilter.USER_INPUT_KEY, nextLearnId, request);
-            LOGGER.debug("Added wildcard pattern for {} (fuzzer {})", request.getUrl(), fuzzerId);
+            filter.addUserPattern(request);
+            LOGGER.debug("Added user pattern for {} (fuzzer {})", request.getUrl(), fuzzerId);
           } catch (Exception e) {
             LOGGER.error(
-                "Failed to add wildcard for {} (fuzzer {})", request.getUrl(), fuzzerId, e);
+                "Failed to add user pattern for {} (fuzzer {})", request.getUrl(), fuzzerId, e);
           }
 
           processedCount++;

@@ -498,8 +498,6 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               LOGGER.debug(
                   "Recreating engine after UI sync to use updated fuzzerOptions for fuzzer: {}",
                   identifier);
-              this.wildcardFilter = new WildcardFilter();
-              LOGGER.debug("Reset WildcardFilter for new fuzzing session");
             }
 
             fuzzerEngine = createFuzzerEngine();

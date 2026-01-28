@@ -427,7 +427,7 @@ public class LogTablePanel extends JPanel {
           if (requestObject.getHttpResponse() == null) {
             return false;
           }
-          return wildcardFilter.isWildcard(WildcardFilter.USER_INPUT_KEY, requestObject);
+          return wildcardFilter.isWildcard(requestObject);
         });
   }
 

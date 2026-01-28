@@ -5,125 +5,126 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Filters HTTP responses based on learned wildcard patterns to identify and exclude responses that
- * match known patterns (e.g., error pages, default responses). Maintains multiple pattern sets
- * indexed by key and learning iteration.
+ * match known patterns (e.g., error pages, default responses).
+ *
+ * <p>Maintains two separate pattern sets:
+ *
+ * <ul>
+ *   <li>User patterns: Single baseline from "Ignore Requests" action
+ *   <li>Learn patterns: Multiple baselines from Python script learn_group() calibration
+ * </ul>
  */
 public class WildcardFilter {
-  /** Key for globally-applied wildcard patterns that affect all requests */
-  public static String USER_INPUT_KEY = "USER_INPUT_KEY";
+  /** User patterns - single baseline from "Ignore Requests" action. */
+  private VariationsAnalyzer userPatternAnalyzer;
 
-  private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, VariationsAnalyzer>>
-      wildcardMap = new ConcurrentHashMap<>();
+  /** Learn patterns - from Python script learn_group() calibration. */
+  private final ConcurrentHashMap<Integer, VariationsAnalyzer> learnPatterns =
+      new ConcurrentHashMap<>();
 
   public WildcardFilter() {}
 
+  // === User Patterns (Ignore Requests) ===
+
   /**
-   * Releases all resources held by this filter, including all pattern analyzers. Should be called
-   * when the filter is no longer needed to prevent memory leaks.
+   * Adds a response to the user pattern baseline. All user patterns contribute to a single
+   * analyzer.
+   *
+   * @param requestObject request containing the response to learn from
    */
-  public void cleanUp() {
-    for (ConcurrentHashMap<Integer, VariationsAnalyzer> variationsAnalyzers :
-        wildcardMap.values()) {
-      for (VariationsAnalyzer variationsAnalyzer : variationsAnalyzers.values()) {
-        variationsAnalyzer.cleanUp();
-      }
-      variationsAnalyzers.clear();
+  public synchronized void addUserPattern(RequestObject requestObject) {
+    if (userPatternAnalyzer == null) {
+      userPatternAnalyzer = new VariationsAnalyzer();
     }
-    wildcardMap.clear();
+    userPatternAnalyzer.updateWith(requestObject.getHttpResponse());
   }
 
   /**
-   * Adds a response to the wildcard pattern learning process. Creates a new pattern analyzer if
-   * needed, or updates an existing one.
+   * Checks if a response matches user patterns.
    *
-   * @param key identifier for the pattern set
-   * @param learn learning iteration number (allows multiple pattern sets per key)
-   * @param requestObject request object containing the response to learn from
+   * @param requestObject request containing the response to check
+   * @return true if the response matches user patterns
    */
-  public void addWildcard(String key, int learn, RequestObject requestObject) {
-    ConcurrentHashMap<Integer, VariationsAnalyzer> variationsAnalyzers = wildcardMap.get(key);
-    if (variationsAnalyzers == null) {
-      variationsAnalyzers = new ConcurrentHashMap<>();
-      VariationsAnalyzer variationsAnalyzer = new VariationsAnalyzer();
-      variationsAnalyzer.updateWith(requestObject.getHttpResponse());
-      variationsAnalyzers.put(learn, variationsAnalyzer);
-
-      wildcardMap.put(key, variationsAnalyzers);
-    } else {
-      VariationsAnalyzer variationsAnalyzer = variationsAnalyzers.get(learn);
-      if (variationsAnalyzer == null) {
-        variationsAnalyzer = new VariationsAnalyzer();
-        variationsAnalyzer.updateWith(requestObject.getHttpResponse());
-
-        variationsAnalyzers.put(learn, variationsAnalyzer);
-      } else {
-        variationsAnalyzer.updateWith(requestObject.getHttpResponse());
-      }
-    }
-  }
-
-  /**
-   * Returns the next available learning iteration ID for the specified key.
-   *
-   * @param key pattern set identifier
-   * @return next learning ID (current count of analyzers for this key)
-   */
-  public int getNextLearnId(String key) {
-    ConcurrentHashMap<Integer, VariationsAnalyzer> variationsAnalyzers = wildcardMap.get(key);
-    if (variationsAnalyzers == null) {
-      return 0;
-    }
-    return variationsAnalyzers.size();
-  }
-
-  /**
-   * Checks if a pattern set exists for the specified key.
-   *
-   * @param key pattern set identifier to check
-   * @return true if patterns exist for this key
-   */
-  public boolean keyExists(String key) {
-    return wildcardMap.containsKey(key);
-  }
-
-  /**
-   * Checks if a response matches learned wildcard patterns. Patterns associated with USER_INPUT_KEY
-   * are checked first and apply globally. If the key is not USER_INPUT_KEY, additional key-specific
-   * patterns are evaluated.
-   *
-   * @param key lookup key identifying the pattern set to check
-   * @param requestObject request object containing the response to analyze
-   * @return true if the response matches a wildcard pattern and should be filtered
-   */
-  public boolean isWildcard(String key, RequestObject requestObject) {
-    ConcurrentHashMap<Integer, VariationsAnalyzer> userInputVariationsAnalyzers =
-        wildcardMap.get(USER_INPUT_KEY);
-    if (userInputVariationsAnalyzers != null) {
-      for (VariationsAnalyzer variationsAnalyzer : userInputVariationsAnalyzers.values()) {
-        if (variationsAnalyzer.isSimilar(requestObject.getHttpResponse())) {
-          return true;
-        }
-      }
-    }
-
-    if (key == USER_INPUT_KEY) {
+  public boolean matchesUserPattern(RequestObject requestObject) {
+    if (userPatternAnalyzer == null) {
       return false;
     }
+    return userPatternAnalyzer.isSimilar(requestObject.getHttpResponse());
+  }
 
-    ConcurrentHashMap<Integer, VariationsAnalyzer> variationsAnalyzers = wildcardMap.get(key);
-    if (variationsAnalyzers == null) {
-      return false;
-    }
-    for (VariationsAnalyzer variationsAnalyzer : variationsAnalyzers.values()) {
-      if (variationsAnalyzer.isSimilar(requestObject.getHttpResponse())) {
+  /**
+   * Checks if any user patterns have been learned.
+   *
+   * @return true if user patterns exist
+   */
+  public boolean hasUserPatterns() {
+    return userPatternAnalyzer != null;
+  }
+
+  // === Learn Patterns (Python script) ===
+
+  /**
+   * Adds a response to a learn pattern group. Each learn group maintains its own analyzer.
+   *
+   * @param learnGroup the learn group ID (1-5 typically)
+   * @param requestObject request containing the response to learn from
+   */
+  public void addLearnPattern(int learnGroup, RequestObject requestObject) {
+    learnPatterns.compute(
+        learnGroup,
+        (key, analyzer) -> {
+          if (analyzer == null) {
+            analyzer = new VariationsAnalyzer();
+          }
+          analyzer.updateWith(requestObject.getHttpResponse());
+          return analyzer;
+        });
+  }
+
+  /**
+   * Checks if a response matches any learn pattern.
+   *
+   * @param requestObject request containing the response to check
+   * @return true if the response matches any learn pattern
+   */
+  public boolean matchesLearnPattern(RequestObject requestObject) {
+    for (VariationsAnalyzer analyzer : learnPatterns.values()) {
+      if (analyzer.isSimilar(requestObject.getHttpResponse())) {
         return true;
       }
     }
     return false;
   }
 
-  /** Removes all learned wildcard patterns from the filter. */
+  // === Combined Check ===
+
+  /**
+   * Checks if a response matches any wildcard pattern (user or learn).
+   *
+   * @param requestObject request containing the response to check
+   * @return true if the response matches any pattern and should be filtered
+   */
+  public boolean isWildcard(RequestObject requestObject) {
+    return matchesUserPattern(requestObject) || matchesLearnPattern(requestObject);
+  }
+
+  /** Removes all learned patterns from the filter. */
   public void clear() {
-    wildcardMap.clear();
+    if (userPatternAnalyzer != null) {
+      userPatternAnalyzer.cleanUp();
+      userPatternAnalyzer = null;
+    }
+    for (VariationsAnalyzer analyzer : learnPatterns.values()) {
+      analyzer.cleanUp();
+    }
+    learnPatterns.clear();
+  }
+
+  /**
+   * Releases all resources held by this filter. Should be called when the filter is no longer
+   * needed to prevent memory leaks.
+   */
+  public void cleanUp() {
+    clear();
   }
 }

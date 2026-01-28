@@ -1,6 +1,8 @@
 package com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter;
 
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -10,13 +12,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Maintains two separate pattern sets:
  *
  * <ul>
- *   <li>User patterns: Single baseline from "Ignore Requests" action
+ *   <li>User patterns: Each "Ignore Requests" action creates one baseline from selected requests
  *   <li>Learn patterns: Multiple baselines from Python script learn_group() calibration
  * </ul>
  */
 public class WildcardFilter {
-  /** User patterns - single baseline from "Ignore Requests" action. */
-  private VariationsAnalyzer userPatternAnalyzer;
+  /** User patterns - each "Ignore Requests" action creates one analyzer. */
+  private final List<VariationsAnalyzer> userPatternAnalyzers = new ArrayList<>();
+
+  /** Temporary analyzer for building current pattern (before finalizing). */
+  private VariationsAnalyzer currentBuilder;
 
   /** Learn patterns - from Python script learn_group() calibration. */
   private final ConcurrentHashMap<Integer, VariationsAnalyzer> learnPatterns =
@@ -24,32 +29,49 @@ public class WildcardFilter {
 
   public WildcardFilter() {}
 
-  // === User Patterns (Ignore Requests) ===
+  // === User Patterns (Ignore Requests) - Batch API ===
 
   /**
-   * Adds a response to the user pattern baseline. All user patterns contribute to a single
-   * analyzer.
-   *
-   * @param requestObject request containing the response to learn from
+   * Start building a new user pattern baseline. Called at the beginning of an "Ignore Requests"
+   * action.
    */
-  public synchronized void addUserPattern(RequestObject requestObject) {
-    if (userPatternAnalyzer == null) {
-      userPatternAnalyzer = new VariationsAnalyzer();
-    }
-    userPatternAnalyzer.updateWith(requestObject.getHttpResponse());
+  public synchronized void startUserPatternBatch() {
+    currentBuilder = new VariationsAnalyzer();
   }
 
   /**
-   * Checks if a response matches user patterns.
+   * Add a response to the current pattern being built.
+   *
+   * @param requestObject request containing the response to learn from
+   */
+  public synchronized void addToCurrentBatch(RequestObject requestObject) {
+    if (currentBuilder == null) {
+      currentBuilder = new VariationsAnalyzer();
+    }
+    currentBuilder.updateWith(requestObject.getHttpResponse());
+  }
+
+  /** Finalize the current pattern and add it to the list. */
+  public synchronized void finalizeUserPatternBatch() {
+    if (currentBuilder != null) {
+      userPatternAnalyzers.add(currentBuilder);
+      currentBuilder = null;
+    }
+  }
+
+  /**
+   * Checks if a response matches any user pattern.
    *
    * @param requestObject request containing the response to check
-   * @return true if the response matches user patterns
+   * @return true if the response matches any user pattern
    */
   public boolean matchesUserPattern(RequestObject requestObject) {
-    if (userPatternAnalyzer == null) {
-      return false;
+    for (VariationsAnalyzer analyzer : userPatternAnalyzers) {
+      if (analyzer.isSimilar(requestObject.getHttpResponse())) {
+        return true;
+      }
     }
-    return userPatternAnalyzer.isSimilar(requestObject.getHttpResponse());
+    return false;
   }
 
   /**
@@ -58,7 +80,7 @@ public class WildcardFilter {
    * @return true if user patterns exist
    */
   public boolean hasUserPatterns() {
-    return userPatternAnalyzer != null;
+    return !userPatternAnalyzers.isEmpty();
   }
 
   // === Learn Patterns (Python script) ===
@@ -110,10 +132,12 @@ public class WildcardFilter {
 
   /** Removes all learned patterns from the filter. */
   public void clear() {
-    if (userPatternAnalyzer != null) {
-      userPatternAnalyzer.cleanUp();
-      userPatternAnalyzer = null;
+    for (VariationsAnalyzer analyzer : userPatternAnalyzers) {
+      analyzer.cleanUp();
     }
+    userPatternAnalyzers.clear();
+    currentBuilder = null;
+
     for (VariationsAnalyzer analyzer : learnPatterns.values()) {
       analyzer.cleanUp();
     }

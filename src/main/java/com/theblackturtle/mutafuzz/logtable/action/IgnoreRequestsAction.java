@@ -85,6 +85,9 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
     protected Void doInBackground() throws Exception {
       LOGGER.debug("Starting ignore operation for {} requests", requests.size());
 
+      // Start a new batch for this "Ignore Requests" action
+      filter.startUserPatternBatch();
+
       for (int i = 0; i < requests.size(); i++) {
         if (isCancelled() || isUserCancelled()) {
           LOGGER.debug("Ignore operation cancelled at {}/{}", i, requests.size());
@@ -94,7 +97,7 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
         RequestObject request = requests.get(i);
 
         try {
-          filter.addUserPattern(request);
+          filter.addToCurrentBatch(request);
           LOGGER.debug("Added user pattern for {}", request.getUrl());
         } catch (Exception e) {
           LOGGER.error("Failed to add user pattern for {}", request.getUrl(), e);
@@ -102,6 +105,9 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
 
         updateProgress(i + 1, String.format("Ignored %d/%d requests", i + 1, requests.size()));
       }
+
+      // Finalize the batch - adds the analyzer to the list
+      filter.finalizeUserPatternBatch();
 
       return null;
     }

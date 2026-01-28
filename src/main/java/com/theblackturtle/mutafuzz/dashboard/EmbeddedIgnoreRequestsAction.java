@@ -143,14 +143,19 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
           continue;
         }
 
+        // Start a new batch for this fuzzer's requests
+        filter.startUserPatternBatch();
+
         for (RequestObject request : fuzzerRequests) {
           if (isCancelled() || isUserCancelled()) {
             LOGGER.debug("Ignore operation cancelled at {}/{}", processedCount, requests.size());
+            // Finalize even if cancelled to avoid leaving partial state
+            filter.finalizeUserPatternBatch();
             return null;
           }
 
           try {
-            filter.addUserPattern(request);
+            filter.addToCurrentBatch(request);
             LOGGER.debug("Added user pattern for {} (fuzzer {})", request.getUrl(), fuzzerId);
           } catch (Exception e) {
             LOGGER.error(
@@ -162,6 +167,9 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
               processedCount,
               String.format("Ignored %d/%d requests", processedCount, requests.size()));
         }
+
+        // Finalize the batch for this fuzzer
+        filter.finalizeUserPatternBatch();
         panel.revalidateWildcards();
       }
 

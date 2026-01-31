@@ -20,42 +20,23 @@ public class WildcardFilter {
   /** User patterns - each "Ignore Requests" action creates one analyzer. */
   private final List<VariationsAnalyzer> userPatternAnalyzers = new ArrayList<>();
 
-  /** Temporary analyzer for building current pattern (before finalizing). */
-  private VariationsAnalyzer currentBuilder;
-
   /** Learn patterns - from Python script learn_group() calibration. */
   private final ConcurrentHashMap<Integer, VariationsAnalyzer> learnPatterns =
       new ConcurrentHashMap<>();
 
   public WildcardFilter() {}
 
-  // === User Patterns (Ignore Requests) - Batch API ===
+  // === User Patterns (Ignore Requests) ===
 
   /**
-   * Start building a new user pattern baseline. Called at the beginning of an "Ignore Requests"
-   * action.
-   */
-  public synchronized void startUserPatternBatch() {
-    currentBuilder = new VariationsAnalyzer();
-  }
-
-  /**
-   * Add a response to the current pattern being built.
+   * Adds a pre-built analyzer to the user patterns list. Use this when building analyzer outside
+   * the filter for better performance.
    *
-   * @param requestObject request containing the response to learn from
+   * @param analyzer the completed VariationsAnalyzer to add
    */
-  public synchronized void addToCurrentBatch(RequestObject requestObject) {
-    if (currentBuilder == null) {
-      currentBuilder = new VariationsAnalyzer();
-    }
-    currentBuilder.updateWith(requestObject.getHttpResponse());
-  }
-
-  /** Finalize the current pattern and add it to the list. */
-  public synchronized void finalizeUserPatternBatch() {
-    if (currentBuilder != null) {
-      userPatternAnalyzers.add(currentBuilder);
-      currentBuilder = null;
+  public synchronized void addUserPatternAnalyzer(VariationsAnalyzer analyzer) {
+    if (analyzer != null) {
+      userPatternAnalyzers.add(analyzer);
     }
   }
 
@@ -136,7 +117,6 @@ public class WildcardFilter {
       analyzer.cleanUp();
     }
     userPatternAnalyzers.clear();
-    currentBuilder = null;
 
     for (VariationsAnalyzer analyzer : learnPatterns.values()) {
       analyzer.cleanUp();

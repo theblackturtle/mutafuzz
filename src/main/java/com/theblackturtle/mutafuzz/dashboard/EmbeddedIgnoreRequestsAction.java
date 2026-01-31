@@ -2,6 +2,7 @@ package com.theblackturtle.mutafuzz.dashboard;
 
 import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
+import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.VariationsAnalyzer;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.widget.ProgressDialogWorker;
 import com.theblackturtle.swing.requesttable.ui.RequestTableAction;
@@ -143,19 +144,18 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
           continue;
         }
 
-        // Start a new batch for this fuzzer's requests
-        filter.startUserPatternBatch();
+        // Create local analyzer for this fuzzer's requests
+        VariationsAnalyzer localAnalyzer = new VariationsAnalyzer();
 
         for (RequestObject request : fuzzerRequests) {
           if (isCancelled() || isUserCancelled()) {
             LOGGER.debug("Ignore operation cancelled at {}/{}", processedCount, requests.size());
-            // Finalize even if cancelled to avoid leaving partial state
-            filter.finalizeUserPatternBatch();
+            localAnalyzer.cleanUp();
             return null;
           }
 
           try {
-            filter.addToCurrentBatch(request);
+            localAnalyzer.updateWith(request.getHttpResponse());
             LOGGER.debug("Added user pattern for {} (fuzzer {})", request.getUrl(), fuzzerId);
           } catch (Exception e) {
             LOGGER.error(
@@ -168,8 +168,8 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
               String.format("Ignored %d/%d requests", processedCount, requests.size()));
         }
 
-        // Finalize the batch for this fuzzer
-        filter.finalizeUserPatternBatch();
+        // Add completed analyzer to filter (single synchronized call)
+        filter.addUserPatternAnalyzer(localAnalyzer);
         panel.revalidateWildcards();
       }
 

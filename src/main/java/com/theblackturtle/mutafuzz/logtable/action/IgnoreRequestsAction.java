@@ -1,6 +1,7 @@
 package com.theblackturtle.mutafuzz.logtable.action;
 
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
+import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.VariationsAnalyzer;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.widget.ProgressDialogWorker;
 import com.theblackturtle.swing.requesttable.ui.RequestTableAction;
@@ -85,19 +86,20 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
     protected Void doInBackground() throws Exception {
       LOGGER.debug("Starting ignore operation for {} requests", requests.size());
 
-      // Start a new batch for this "Ignore Requests" action
-      filter.startUserPatternBatch();
+      // Create local analyzer - no synchronization needed
+      VariationsAnalyzer localAnalyzer = new VariationsAnalyzer();
 
       for (int i = 0; i < requests.size(); i++) {
         if (isCancelled() || isUserCancelled()) {
           LOGGER.debug("Ignore operation cancelled at {}/{}", i, requests.size());
-          break;
+          localAnalyzer.cleanUp();
+          return null;
         }
 
         RequestObject request = requests.get(i);
 
         try {
-          filter.addToCurrentBatch(request);
+          localAnalyzer.updateWith(request.getHttpResponse());
           LOGGER.debug("Added user pattern for {}", request.getUrl());
         } catch (Exception e) {
           LOGGER.error("Failed to add user pattern for {}", request.getUrl(), e);
@@ -106,8 +108,8 @@ public class IgnoreRequestsAction implements RequestTableAction<RequestObject> {
         updateProgress(i + 1, String.format("Ignored %d/%d requests", i + 1, requests.size()));
       }
 
-      // Finalize the batch - adds the analyzer to the list
-      filter.finalizeUserPatternBatch();
+      // Add completed analyzer to filter (single synchronized call)
+      filter.addUserPatternAnalyzer(localAnalyzer);
 
       return null;
     }

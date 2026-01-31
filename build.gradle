@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.theblackturtle.mutafuzz'
-version = '1.0.2'
+version = '1.0.3'
 sourceCompatibility = JavaVersion.VERSION_21
 targetCompatibility = JavaVersion.VERSION_21
 

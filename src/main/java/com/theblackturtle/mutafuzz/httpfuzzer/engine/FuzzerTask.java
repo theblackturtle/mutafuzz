@@ -190,7 +190,12 @@ public class FuzzerTask implements Runnable {
 
   private RequestObject createRequestObject(HttpRequestResponse response, long delayTime) {
     return new RequestObject(
-        id, parent.getFuzzerScanId(), response.request(), response.response(), delayTime);
+        id,
+        parent.getFuzzerScanId(),
+        response.request(),
+        response.response(),
+        delayTime,
+        parent.getWildcardFilter());
   }
 
   private void notifyFailedRequest(Exception cause, long elapsedTimeMs) {
@@ -211,9 +216,8 @@ public class FuzzerTask implements Runnable {
         LOGGER.debug("Task #{}: Processing learning request (learn={})", id, learn);
         parent.getWildcardFilter().addLearnPattern(learn, requestObject);
       } else {
-        // Normal mode: check against all patterns
-        boolean interesting = !parent.getWildcardFilter().isWildcard(requestObject);
-        requestObject.setInteresting(interesting);
+        // Normal mode: invoke callback - interesting is computed dynamically via getInteresting()
+        // which checks the WildcardFilter at evaluation time (not at creation time)
         parent.invokeCallback(requestObject);
       }
     } catch (Exception e) {

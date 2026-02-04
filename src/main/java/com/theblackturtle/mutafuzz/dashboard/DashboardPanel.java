@@ -173,7 +173,7 @@ public class DashboardPanel extends JTabbedPane {
               identifier,
               BurpExtender.MONTOYA_API,
               new BurpRequester(BurpExtender.MONTOYA_API),
-              panel);
+              panel.getWildcardFilter());
       panel.setLogTablePanel(logTablePanel);
 
       model.addSession(fuzzerId, panel);

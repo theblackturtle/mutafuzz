@@ -1,40 +1,52 @@
 package com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter;
 
+import burp.BurpExtender;
+
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
-import java.util.ArrayList;
+
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Filters HTTP responses based on learned wildcard patterns to identify and exclude responses that
+ * Filters HTTP responses based on learned wildcard patterns to identify and
+ * exclude responses that
  * match known patterns (e.g., error pages, default responses).
  *
- * <p>Maintains two separate pattern sets:
+ * <p>
+ * Maintains two separate pattern sets:
  *
  * <ul>
- *   <li>User patterns: Each "Ignore Requests" action creates one baseline from selected requests
- *   <li>Learn patterns: Multiple baselines from Python script learn_group() calibration
+ * <li>User patterns: Each "Ignore Requests" action creates one baseline from
+ * selected requests
+ * <li>Learn patterns: Multiple baselines from Python script learn_group()
+ * calibration
  * </ul>
  */
 public class WildcardFilter {
-  /** User patterns - each "Ignore Requests" action creates one analyzer. */
-  private final List<VariationsAnalyzer> userPatternAnalyzers = new ArrayList<>();
+  /**
+   * User patterns - each "Ignore Requests" action creates one analyzer.
+   * Thread-safe for concurrent
+   * read/write.
+   */
+  private final List<VariationsAnalyzer> userPatternAnalyzers = new CopyOnWriteArrayList<>();
 
   /** Learn patterns - from Python script learn_group() calibration. */
-  private final ConcurrentHashMap<Integer, VariationsAnalyzer> learnPatterns =
-      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Integer, VariationsAnalyzer> learnPatterns = new ConcurrentHashMap<>();
 
-  public WildcardFilter() {}
+  public WildcardFilter() {
+  }
 
   // === User Patterns (Ignore Requests) ===
 
   /**
-   * Adds a pre-built analyzer to the user patterns list. Use this when building analyzer outside
-   * the filter for better performance.
+   * Adds a pre-built analyzer to the user patterns list. Use this when building
+   * analyzer outside
+   * the filter for better performance. Thread-safe via CopyOnWriteArrayList.
    *
    * @param analyzer the completed VariationsAnalyzer to add
    */
-  public synchronized void addUserPatternAnalyzer(VariationsAnalyzer analyzer) {
+  public void addUserPatternAnalyzer(VariationsAnalyzer analyzer) {
     if (analyzer != null) {
       userPatternAnalyzers.add(analyzer);
     }
@@ -67,9 +79,10 @@ public class WildcardFilter {
   // === Learn Patterns (Python script) ===
 
   /**
-   * Adds a response to a learn pattern group. Each learn group maintains its own analyzer.
+   * Adds a response to a learn pattern group. Each learn group maintains its own
+   * analyzer.
    *
-   * @param learnGroup the learn group ID (1-5 typically)
+   * @param learnGroup    the learn group ID (1-5 typically)
    * @param requestObject request containing the response to learn from
    */
   public void addLearnPattern(int learnGroup, RequestObject requestObject) {
@@ -108,6 +121,10 @@ public class WildcardFilter {
    * @return true if the response matches any pattern and should be filtered
    */
   public boolean isWildcard(RequestObject requestObject) {
+    BurpExtender.MONTOYA_API.logging().logToOutput("> matchesUserPattern: " + matchesUserPattern(requestObject)
+        + ", matchesLearnPattern: " + matchesLearnPattern(requestObject) + ", both: "
+        + "" + (matchesUserPattern(requestObject) || matchesLearnPattern(requestObject)));
+
     return matchesUserPattern(requestObject) || matchesLearnPattern(requestObject);
   }
 
@@ -125,7 +142,8 @@ public class WildcardFilter {
   }
 
   /**
-   * Releases all resources held by this filter. Should be called when the filter is no longer
+   * Releases all resources held by this filter. Should be called when the filter
+   * is no longer
    * needed to prevent memory leaks.
    */
   public void cleanUp() {

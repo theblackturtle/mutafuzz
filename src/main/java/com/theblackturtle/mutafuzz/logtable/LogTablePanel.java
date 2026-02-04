@@ -2,7 +2,6 @@ package com.theblackturtle.mutafuzz.logtable;
 
 import burp.api.montoya.MontoyaApi;
 import com.theblackturtle.mutafuzz.httpclient.BurpRequester;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.logtable.action.AddToTargetAction;
@@ -49,7 +48,7 @@ public class LogTablePanel extends JPanel {
   // Dependencies for actions
   private final MontoyaApi api;
   private final BurpRequester requester;
-  private final HttpFuzzerPanel fuzzerPanel;
+  private final WildcardFilter wildcardFilter;
 
   // Selection management
   private final List<ListSelectionListener> externalListeners = new ArrayList<>();
@@ -62,14 +61,14 @@ public class LogTablePanel extends JPanel {
    * @param identifier Human-readable fuzzer name
    * @param api Burp Montoya API for target operations
    * @param requester HTTP client for resending requests
-   * @param fuzzerPanel Fuzzer panel for wildcard filter access
+   * @param wildcardFilter Filter for ignoring similar responses
    */
   public LogTablePanel(
       int fuzzerId,
       String identifier,
       MontoyaApi api,
       BurpRequester requester,
-      HttpFuzzerPanel fuzzerPanel) {
+      WildcardFilter wildcardFilter) {
 
     if (api == null) {
       throw new IllegalArgumentException("MontoyaApi cannot be null");
@@ -77,15 +76,15 @@ public class LogTablePanel extends JPanel {
     if (requester == null) {
       throw new IllegalArgumentException("BurpRequester cannot be null");
     }
-    if (fuzzerPanel == null) {
-      throw new IllegalArgumentException("HttpFuzzerPanel cannot be null");
+    if (wildcardFilter == null) {
+      throw new IllegalArgumentException("WildcardFilter cannot be null");
     }
 
     this.fuzzerId = fuzzerId;
     this.identifier = identifier;
     this.api = api;
     this.requester = requester;
-    this.fuzzerPanel = fuzzerPanel;
+    this.wildcardFilter = wildcardFilter;
 
     // Build UI
     setLayout(new BorderLayout());
@@ -152,7 +151,7 @@ public class LogTablePanel extends JPanel {
     requestTable.addContextMenuAction(new AddToTargetAction(api));
     requestTable.addContextMenuAction(new ResendRequestAction(requester));
     requestTable.addContextMenuAction(
-        new IgnoreRequestsAction(fuzzerPanel.getWildcardFilter(), this::handleFilterChanged));
+        new IgnoreRequestsAction(wildcardFilter, this::handleFilterChanged));
   }
 
   /** Creates selection listener that updates request viewer on table selection. */
@@ -413,12 +412,6 @@ public class LogTablePanel extends JPanel {
   /** Applies wildcard filters and removes matching requests from table. */
   public void revalidateWildcards() {
     if (isDisposed.get()) {
-      return;
-    }
-
-    WildcardFilter wildcardFilter = fuzzerPanel.getWildcardFilter();
-    if (wildcardFilter == null) {
-      LOGGER.debug("Wildcard filter unavailable, skipping revalidation");
       return;
     }
 

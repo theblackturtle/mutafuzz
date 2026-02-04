@@ -133,10 +133,15 @@ public class VariationsAnalyzer implements ResponseVariationsAnalyzer {
    * identify attributes
    * that differ from baseline and mark them as variant.
    *
+   * <p>
+   * Thread-safe: synchronized to prevent concurrent modification of internal
+   * state when multiple
+   * fuzzer threads update the same learn group analyzer.
+   *
    * @param response HTTP response to analyze and learn from
    */
   @Override
-  public void updateWith(HttpResponse response) {
+  public synchronized void updateWith(HttpResponse response) {
     HashMap<String, Integer> attrs = extractAllAttributes(response);
 
     if (base == null) {
@@ -162,15 +167,15 @@ public class VariationsAnalyzer implements ResponseVariationsAnalyzer {
    * attributes against
    * the baseline values.
    *
+   * <p>
+   * Thread-safe: synchronized to ensure consistent reads of internal state while
+   * other threads
+   * may be calling updateWith().
+   *
    * @param httpResponse response to check for similarity
    * @return true if all invariant attributes match the baseline values
    */
-  public boolean isSimilar(HttpResponse httpResponse) {
-    // No baseline or no invariants = no valid pattern = nothing matches
-    if (base == null || invariantAttributes == null || invariantAttributes.isEmpty()) {
-      return false;
-    }
-
+  public synchronized boolean isSimilar(HttpResponse httpResponse) {
     HashMap<String, Integer> attrs = extractAllAttributes(httpResponse);
 
     for (String key : invariantAttributes) {
@@ -202,13 +207,11 @@ public class VariationsAnalyzer implements ResponseVariationsAnalyzer {
 
     if (body.length > 0) {
       int firstLen = Math.min(HASH_BYTES_LENGTH, body.length);
-      attrs.put("FIRST_100_BYTES_HASH", computeCrc32(Arrays.copyOf(body,
-          firstLen)));
+      attrs.put("FIRST_100_BYTES_HASH", computeCrc32(Arrays.copyOf(body, firstLen)));
 
       int lastLen = Math.min(HASH_BYTES_LENGTH, body.length);
       int start = body.length - lastLen;
-      attrs.put("LAST_100_BYTES_HASH", computeCrc32(Arrays.copyOfRange(body, start,
-          body.length)));
+      attrs.put("LAST_100_BYTES_HASH", computeCrc32(Arrays.copyOfRange(body, start, body.length)));
     } else {
       attrs.put("FIRST_100_BYTES_HASH", 0);
       attrs.put("LAST_100_BYTES_HASH", 0);

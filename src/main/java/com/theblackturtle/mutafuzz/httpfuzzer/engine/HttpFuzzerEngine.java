@@ -83,8 +83,8 @@ public class HttpFuzzerEngine {
   // Monitoring and control
   private StateMonitorThread stateMonitorThread;
 
-  // Wildcard filtering
-  @Getter private WildcardFilter wildcardFilter;
+  // Wildcard filtering - injected via constructor, shared across engine recreations
+  @Getter private final WildcardFilter wildcardFilter;
 
   // Python script callback for response processing
   private Callback callback;
@@ -100,13 +100,16 @@ public class HttpFuzzerEngine {
    * @param originalRequest Base HTTP request template
    * @param fuzzerOptions Configuration including script, wordlists, and HTTP settings
    * @param modelListeners Event listeners for state and result notifications
+   * @param wildcardFilter WildcardFilter instance for response filtering (shared across engine
+   *     recreations)
    */
   public HttpFuzzerEngine(
       String fuzzerScanName,
       int fuzzerScanId,
       HttpRequest originalRequest,
       FuzzerOptions fuzzerOptions,
-      List<FuzzerModelListener> modelListeners) {
+      List<FuzzerModelListener> modelListeners,
+      WildcardFilter wildcardFilter) {
     this.fuzzerScanName = fuzzerScanName;
     this.fuzzerScanId = fuzzerScanId;
     this.originalRequest = originalRequest;
@@ -124,9 +127,8 @@ public class HttpFuzzerEngine {
     this.fuzzerOptions = fuzzerOptions;
     // Store reference to listener list (not a copy)
     this.modelListeners = modelListeners;
-
-    // WildcardFilter will be injected to share across engine recreations
-    this.wildcardFilter = null;
+    // WildcardFilter shared across engine recreations - may be null if not needed
+    this.wildcardFilter = wildcardFilter;
 
     this.unpauseCondition = stateLock.writeLock().newCondition();
 
@@ -1343,16 +1345,6 @@ public class HttpFuzzerEngine {
 
   public boolean isFuzzerTaskExecutorInitialized() {
     return fuzzerTaskExecutor != null && !fuzzerTaskExecutor.isShutdown();
-  }
-
-  /**
-   * Injects session-scoped wildcard filter. Called after engine creation to share filter across
-   * stop/start cycles.
-   *
-   * @param filter WildcardFilter instance to use for response filtering
-   */
-  public void setWildcardFilter(WildcardFilter filter) {
-    this.wildcardFilter = filter;
   }
 
   /**

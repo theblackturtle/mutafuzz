@@ -73,7 +73,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
   private final FuzzerOptions fuzzerOptions;
 
   private HttpFuzzerEngine fuzzerEngine;
-  private WildcardFilter wildcardFilter;
+  private final WildcardFilter wildcardFilter;
   private String defaultPath;
 
   private JButton startButton;
@@ -184,7 +184,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             identifier,
             BurpExtender.MONTOYA_API,
             new BurpRequester(BurpExtender.MONTOYA_API),
-            this);
+            wildcardFilter);
 
     JPanel buttonPanel = createButtonPanel();
     JPanel configPanel = createConfigPanel();
@@ -667,9 +667,13 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
 
     try {
       HttpFuzzerEngine engine =
-          new HttpFuzzerEngine(identifier, fuzzerId, requestToUse, fuzzerOptions, modelListeners);
-
-      engine.setWildcardFilter(this.wildcardFilter);
+          new HttpFuzzerEngine(
+              identifier,
+              fuzzerId,
+              requestToUse,
+              fuzzerOptions,
+              modelListeners,
+              this.wildcardFilter);
 
       LOGGER.debug(
           "Created HttpFuzzerEngine with {} listeners, threads={}, engine={}",
@@ -1090,7 +1094,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
       runInBackgroundButton = null;
 
       fuzzerEngine = null;
-      wildcardFilter = null;
+      wildcardFilter.cleanUp();
 
     } catch (Exception e) {
       LOGGER.error("Error during HttpFuzzerPanel disposal: {}", e.getMessage(), e);

@@ -5,35 +5,53 @@ import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
+import lombok.Getter;
+
+import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.util.WAFDetector;
 import com.theblackturtle.swing.requesttable.SimpleRequestRowObject;
+
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.Getter;
 
 /**
- * Wraps HTTP request/response pairs for fuzzing operations with table display and Python script
- * access. Provides convenience methods for response analysis, WAF detection, and property-style
+ * Wraps HTTP request/response pairs for fuzzing operations with table display
+ * and Python script
+ * access. Provides convenience methods for response analysis, WAF detection,
+ * and property-style
  * access for scripting.
  */
 public class RequestObject extends SimpleRequestRowObject {
-  @Getter private final int sourceFuzzerId;
-  @Getter private HttpRequest httpRequest;
-  @Getter private HttpResponse httpResponse;
-
-  private boolean interesting = false;
+  @Getter
+  private final int sourceFuzzerId;
+  @Getter
+  private HttpRequest httpRequest;
+  @Getter
+  private HttpResponse httpResponse;
 
   /**
-   * Mutable responseTime that shadows parent's final field. Allows updating response time after
+   * Reference to WildcardFilter for dynamic interesting check. When set,
+   * getInteresting() computes
+   * the value dynamically by calling isWildcard() - ensuring newly added patterns
+   * are respected.
+   */
+  private WildcardFilter wildcardFilter;
+
+  /**
+   * Mutable responseTime that shadows parent's final field. Allows updating
+   * response time after
    * construction (e.g., for async requests).
    */
   private long responseTime;
 
-  private static final Pattern TITLE_PATTERN =
-      Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+  private static final Pattern TITLE_PATTERN = Pattern.compile("<title[^>]*>(.*?)</title>",
+      Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
-  /** Constructor for request-only object (before response received). Uses default ID of 0. */
+  /**
+   * Constructor for request-only object (before response received). Uses default
+   * ID of 0.
+   */
   public RequestObject(HttpRequest httpRequest) {
     this(0, httpRequest);
   }
@@ -51,7 +69,7 @@ public class RequestObject extends SimpleRequestRowObject {
         "", // location
         "", // server
         0L // responseTime
-        );
+    );
     this.sourceFuzzerId = -1;
     this.httpRequest = httpRequest;
     this.httpResponse = null;
@@ -59,7 +77,8 @@ public class RequestObject extends SimpleRequestRowObject {
   }
 
   /**
-   * Constructor with full request/response data (responseTime set to 0). Accepts long ID for
+   * Constructor with full request/response data (responseTime set to 0). Accepts
+   * long ID for
    * compatibility with FuzzerTask.
    */
   public RequestObject(
@@ -68,7 +87,8 @@ public class RequestObject extends SimpleRequestRowObject {
   }
 
   /**
-   * Constructor with full request/response data including response time. Accepts long ID for
+   * Constructor with full request/response data including response time. Accepts
+   * long ID for
    * compatibility with FuzzerTask.
    */
   public RequestObject(
@@ -77,6 +97,22 @@ public class RequestObject extends SimpleRequestRowObject {
       HttpRequest httpRequest,
       HttpResponse httpResponse,
       long responseTime) {
+    this(id, sourceFuzzerId, httpRequest, httpResponse, responseTime, null);
+  }
+
+  /**
+   * Constructor with full request/response data including WildcardFilter for
+   * dynamic interesting
+   * check. When wildcardFilter is provided, getInteresting() will compute
+   * dynamically.
+   */
+  public RequestObject(
+      long id,
+      int sourceFuzzerId,
+      HttpRequest httpRequest,
+      HttpResponse httpResponse,
+      long responseTime,
+      WildcardFilter wildcardFilter) {
     super(
         (int) id, // Cast to int for parent class
         httpRequest != null ? httpRequest.url() : "",
@@ -92,6 +128,7 @@ public class RequestObject extends SimpleRequestRowObject {
     this.httpRequest = httpRequest;
     this.httpResponse = httpResponse;
     this.responseTime = responseTime; // Initialize mutable field from parameter
+    this.wildcardFilter = wildcardFilter;
   }
 
   /** Constructor from HttpRequestResponse (Burp API object). */
@@ -116,14 +153,13 @@ public class RequestObject extends SimpleRequestRowObject {
     this.sourceFuzzerId = -1;
     this.httpRequest = httpRequestResponse.request();
     this.httpResponse = httpRequestResponse.response();
-    this.responseTime =
-        httpRequestResponse.timingData().isPresent()
-            ? httpRequestResponse
-                .timingData()
-                .get()
-                .timeBetweenRequestSentAndStartOfResponse()
-                .toMillis()
-            : 0L; // Initialize mutable field
+    this.responseTime = httpRequestResponse.timingData().isPresent()
+        ? httpRequestResponse
+            .timingData()
+            .get()
+            .timeBetweenRequestSentAndStartOfResponse()
+            .toMillis()
+        : 0L; // Initialize mutable field
   }
 
   public void copyToTempFile() {
@@ -186,13 +222,19 @@ public class RequestObject extends SimpleRequestRowObject {
     this.httpResponse = httpResponse;
   }
 
-  /** Override parent's getter to return mutable field. This shadows the parent's final field. */
+  /**
+   * Override parent's getter to return mutable field. This shadows the parent's
+   * final field.
+   */
   @Override
   public long getResponseTime() {
     return this.responseTime;
   }
 
-  /** Updates response time. Works because we shadow parent's final field with a mutable one. */
+  /**
+   * Updates response time. Works because we shadow parent's final field with a
+   * mutable one.
+   */
   public void setResponseTime(long responseTime) {
     this.responseTime = responseTime;
   }
@@ -226,7 +268,8 @@ public class RequestObject extends SimpleRequestRowObject {
   }
 
   /**
-   * Alias for getResponseBody() - creates req.body property. Follows JavaBean conventions for
+   * Alias for getResponseBody() - creates req.body property. Follows JavaBean
+   * conventions for
    * Python script access.
    */
   public String getBody() {
@@ -248,14 +291,19 @@ public class RequestObject extends SimpleRequestRowObject {
     return getResponseTime();
   }
 
-  /** Property-style access to interesting flag for Python scripts. */
+  /**
+   * Property-style access to interesting flag for Python scripts. When
+   * wildcardFilter is set,
+   * computes dynamically by checking current filter state - this ensures newly
+   * added patterns are
+   * respected even for requests created before the pattern was added.
+   */
   public boolean getInteresting() {
-    return this.interesting;
-  }
-
-  /** Sets the interesting flag for this response. */
-  public void setInteresting(boolean interesting) {
-    this.interesting = interesting;
+    if (wildcardFilter != null && httpResponse != null) {
+      return !wildcardFilter.isWildcard(this);
+    }
+    // Fallback for constructors without filter (e.g., HttpRequestResponse-based)
+    return true;
   }
 
   /** Checks if response status is in success range (200-399). */

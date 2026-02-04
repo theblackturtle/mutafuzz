@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 /**
  * Defines the three fixed modes for HttpFuzzer's request template panel. Mode is determined at

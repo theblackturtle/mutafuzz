@@ -311,12 +311,12 @@ public class DashboardTablePanel extends JPanel
       return;
     }
 
-    boolean hasNotStarted = selectedStates.contains(FuzzerState.NOT_STARTED);
+    boolean hasIdle = selectedStates.contains(FuzzerState.IDLE);
     boolean hasPaused = selectedStates.contains(FuzzerState.PAUSED);
     boolean hasRunning = selectedStates.contains(FuzzerState.RUNNING);
     boolean hasNonRunning = selectedStates.stream().anyMatch(state -> state != FuzzerState.RUNNING);
 
-    boolean startEnabled = hasNotStarted || hasPaused;
+    boolean startEnabled = hasIdle || hasPaused;
     boolean pauseEnabled = hasRunning;
     boolean stopEnabled = hasRunning || hasPaused;
     boolean deleteEnabled = hasNonRunning;

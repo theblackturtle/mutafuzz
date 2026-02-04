@@ -4,16 +4,12 @@ import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.extension.ExtensionUnloadingHandler;
 import burp.api.montoya.ui.hotkey.HotKeyContext;
-
 import com.theblackturtle.mutafuzz.dashboard.DashboardPanel;
-
 import javax.swing.SwingUtilities;
 
 /**
- * Main entry point for the MutaFuzz Burp Suite extension. Registers the fuzzer
- * dashboard, context
- * menu actions, HTTP request editors, and hotkey shortcuts. Manages extension
- * lifecycle and cleanup
+ * Main entry point for the MutaFuzz Burp Suite extension. Registers the fuzzer dashboard, context
+ * menu actions, HTTP request editors, and hotkey shortcuts. Manages extension lifecycle and cleanup
  * on unload.
  */
 public class BurpExtender implements BurpExtension, ExtensionUnloadingHandler {

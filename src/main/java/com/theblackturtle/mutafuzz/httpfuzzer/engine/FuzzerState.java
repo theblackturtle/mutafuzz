@@ -1,54 +1,87 @@
 package com.theblackturtle.mutafuzz.httpfuzzer.engine;
 
 /**
- * Tracks fuzzer lifecycle states and controls request processing behavior. Manages shutdown
- * sequences, circuit-breaker activation, and quarantine pausing.
+ * Simplified 5-state lifecycle for fuzzer execution.
+ *
+ * <pre>
+ *        ┌────────────────────────────────────────────┐
+ *        │                                            │
+ *        ▼                                            │
+ *     [IDLE] ──────start()──────► [RUNNING] ◄────────┘
+ *        ▲                            │   │          resume()
+ *        │                            │   │
+ *   stop() or                   pause()│   │stop()
+ *   finished                          │   │
+ *        │                            ▼   │
+ *        │                        [PAUSED]┘
+ *        │                            │
+ *        │                       stop()│
+ *        │                            │
+ *        └──────── [STOPPED] ◄────────┘
+ *        │
+ *        └──────── [FINISHED]
+ * </pre>
  */
 public enum FuzzerState {
-  NOT_STARTED(false, false, false),
-  RUNNING(false, false, false),
-  PAUSED(false, false, false),
-  PAUSED_QUARANTINE(false, false, true),
-  STOPPING(true, true, false),
-  STOPPED(true, true, false),
-  FINISHED(true, true, false),
-  ERROR(true, true, false);
+  /** Initial state before starting, can transition to RUNNING. */
+  IDLE,
 
-  private final boolean isShuttingDown;
-  private final boolean circuitOpen;
-  private final boolean pausedForQuarantine;
+  /** Actively executing tasks, can transition to PAUSED, STOPPED, or FINISHED. */
+  RUNNING,
 
-  FuzzerState(boolean isShuttingDown, boolean circuitOpen, boolean pausedForQuarantine) {
-    this.isShuttingDown = isShuttingDown;
-    this.circuitOpen = circuitOpen;
-    this.pausedForQuarantine = pausedForQuarantine;
+  /** Temporarily suspended by user, can resume to RUNNING or stop to STOPPED. */
+  PAUSED,
+
+  /** Cancelled by user, terminal state that can restart to IDLE. */
+  STOPPED,
+
+  /** All tasks completed naturally, terminal state that can restart to IDLE. */
+  FINISHED;
+
+  /** Returns true if this is a terminal state (STOPPED or FINISHED). */
+  public boolean isTerminal() {
+    return this == STOPPED || this == FINISHED;
   }
 
-  public boolean isShuttingDown() {
-    return isShuttingDown;
-  }
-
-  public boolean isCircuitOpen() {
-    return circuitOpen;
-  }
-
-  public boolean isPausedForQuarantine() {
-    return pausedForQuarantine;
-  }
-
+  /** Returns true if the fuzzer is actively running. */
   public boolean isRunning() {
     return this == RUNNING;
   }
 
+  /** Returns true if the fuzzer is paused. */
   public boolean isPaused() {
-    return this == PAUSED || this == PAUSED_QUARANTINE;
+    return this == PAUSED;
   }
 
+  /** Returns true if the fuzzer is in a terminal state. */
   public boolean isStopped() {
-    return this == FINISHED || this == STOPPED || this == ERROR;
+    return this == STOPPED || this == FINISHED;
   }
 
+  /** Returns true if the fuzzer is active (running or paused). */
   public boolean isActive() {
-    return this == RUNNING || isPaused();
+    return this == RUNNING || this == PAUSED;
+  }
+
+  /**
+   * Checks if transition to the target state is valid.
+   *
+   * @param target Target state to transition to
+   * @return true if the transition is allowed
+   */
+  public boolean canTransitionTo(FuzzerState target) {
+    switch (this) {
+      case IDLE:
+        return target == RUNNING;
+      case RUNNING:
+        return target == PAUSED || target == STOPPED || target == FINISHED;
+      case PAUSED:
+        return target == RUNNING || target == STOPPED;
+      case STOPPED:
+      case FINISHED:
+        return target == IDLE;
+      default:
+        return false;
+    }
   }
 }

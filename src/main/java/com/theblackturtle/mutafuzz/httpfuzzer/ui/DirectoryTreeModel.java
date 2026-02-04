@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import burp.BurpExtender;
 import java.beans.PropertyChangeListener;

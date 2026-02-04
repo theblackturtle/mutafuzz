@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;

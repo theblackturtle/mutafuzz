@@ -5,10 +5,20 @@ import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.theblackturtle.mutafuzz.dashboard.DashboardConfigConstants;
 import com.theblackturtle.mutafuzz.httpclient.BurpRequester;
+import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzEngine;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerModelListener;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
-import com.theblackturtle.mutafuzz.httpfuzzer.engine.HttpFuzzerEngine;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.ClosingProgressDialog;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.FuzzerOptions;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.FuzzerOptionsPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.FuzzerStatusPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.RawHttpListPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.RequestTemplateMode;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.RequestTemplatePanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.ScriptComboBoxModel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.ScriptComboBoxPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.WordlistTabbedPane;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.logtable.LogTablePanel;
 import com.theblackturtle.mutafuzz.util.PreferenceUtils;
@@ -72,7 +82,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
   private final List<HttpRequestResponse> rawHttpRequestResponses;
   private final FuzzerOptions fuzzerOptions;
 
-  private HttpFuzzerEngine fuzzerEngine;
+  private FuzzEngine fuzzerEngine;
   private final WildcardFilter wildcardFilter;
   private String defaultPath;
 
@@ -438,7 +448,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
       return CompletableFuture.completedFuture(null);
     }
 
-    statusPanel.setState(FuzzerState.NOT_STARTED);
+    statusPanel.setState(FuzzerState.IDLE);
 
     return CompletableFuture.runAsync(
         () -> {
@@ -489,7 +499,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               SwingUtilities.invokeLater(
                   () -> {
                     showError("Failed to load script/wordlists from UI: " + e.getMessage());
-                    statusPanel.setState(FuzzerState.NOT_STARTED);
+                    statusPanel.setState(FuzzerState.IDLE);
                   });
               return;
             }
@@ -508,7 +518,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               SwingUtilities.invokeLater(
                   () -> {
                     showError("Failed to recreate fuzzer engine after UI sync");
-                    statusPanel.setState(FuzzerState.NOT_STARTED);
+                    statusPanel.setState(FuzzerState.IDLE);
                   });
               return;
             }
@@ -516,7 +526,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             LOGGER.debug(
                 "Successfully recreated HttpFuzzerEngine after UI sync for fuzzer: {}", identifier);
 
-            if (fuzzerEngine.startScan()) {
+            if (fuzzerEngine.start()) {
               SwingUtilities.invokeLater(this::switchToLogViewerTab);
               LOGGER.debug("Successfully started fuzzer: {}", identifier);
             } else {
@@ -524,7 +534,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               SwingUtilities.invokeLater(
                   () -> {
                     showError("Failed to start fuzzer");
-                    statusPanel.setState(FuzzerState.NOT_STARTED);
+                    statusPanel.setState(FuzzerState.IDLE);
                   });
             }
 
@@ -533,7 +543,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             SwingUtilities.invokeLater(
                 () -> {
                   showError("Error starting fuzzer: " + e.getMessage());
-                  statusPanel.setState(FuzzerState.NOT_STARTED);
+                  statusPanel.setState(FuzzerState.IDLE);
                 });
           }
         });
@@ -549,7 +559,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
         () -> {
           try {
             if (fuzzerEngine != null) {
-              fuzzerEngine.shutdown();
+              fuzzerEngine.stop();
 
               try {
                 Thread.sleep(200);
@@ -577,7 +587,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
 
     try {
       if (fuzzerEngine != null) {
-        fuzzerEngine.pauseScan();
+        fuzzerEngine.pause();
         LOGGER.debug("Paused fuzzer: {}", identifier);
       }
     } catch (Exception e) {
@@ -594,9 +604,6 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
 
     try {
       if (fuzzerEngine != null) {
-        fuzzerEngine.setErrorCount(0);
-        fuzzerEngine.setQuarantineCount(0);
-
         fuzzerEngine.resume();
         LOGGER.debug("Resumed fuzzer: {}", identifier);
       }
@@ -625,13 +632,6 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
       return;
     }
 
-    if (fuzzerEngine != null) {
-      fuzzerEngine.setErrorCount(0);
-      fuzzerEngine.setProgressCount(0);
-      fuzzerEngine.setTotalTaskCount(0);
-      fuzzerEngine.setQuarantineCount(0);
-    }
-
     if (statusPanel != null) {
       statusPanel.reset();
     }
@@ -643,7 +643,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
     LOGGER.debug("Reset data for fuzzer: {}", identifier);
   }
 
-  private HttpFuzzerEngine createFuzzerEngine() {
+  private FuzzEngine createFuzzerEngine() {
     String scriptContent = fuzzerOptions.getScriptContent();
     if (scriptContent == null || scriptContent.trim().isEmpty()) {
       LOGGER.warn(
@@ -666,8 +666,8 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
     }
 
     try {
-      HttpFuzzerEngine engine =
-          new HttpFuzzerEngine(
+      FuzzEngine engine =
+          new FuzzEngine(
               identifier,
               fuzzerId,
               requestToUse,
@@ -676,7 +676,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               this.wildcardFilter);
 
       LOGGER.debug(
-          "Created HttpFuzzerEngine with {} listeners, threads={}, engine={}",
+          "Created FuzzEngine with {} listeners, threads={}, engine={}",
           modelListeners.size(),
           fuzzerOptions.getThreadCount(),
           fuzzerOptions.getRequesterEngine());
@@ -684,8 +684,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
       return engine;
 
     } catch (Exception e) {
-      LOGGER.error(
-          "Failed to create HttpFuzzerEngine for fuzzer {}: {}", identifier, e.getMessage(), e);
+      LOGGER.error("Failed to create FuzzEngine for fuzzer {}: {}", identifier, e.getMessage(), e);
       LOGGER.error(
           "Configuration details - threads={}, engine={}, scriptContent={}",
           fuzzerOptions.getThreadCount(),
@@ -701,10 +700,9 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
           if (isDisposed.get() || state == null) return;
 
           switch (state) {
-            case NOT_STARTED:
+            case IDLE:
             case STOPPED:
             case FINISHED:
-            case ERROR:
               startButton.setEnabled(true);
               stopButton.setEnabled(false);
               pauseResumeButton.setEnabled(false);
@@ -721,18 +719,10 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
               break;
 
             case PAUSED:
-            case PAUSED_QUARANTINE:
               startButton.setEnabled(false);
               stopButton.setEnabled(true);
               pauseResumeButton.setEnabled(true);
               pauseResumeButton.setText("Resume");
-              break;
-
-            case STOPPING:
-              startButton.setEnabled(false);
-              stopButton.setEnabled(false);
-              pauseResumeButton.setEnabled(false);
-              stopButton.setText("Stopping...");
               break;
           }
         });
@@ -894,7 +884,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
   }
 
   public FuzzerState getFuzzerState() {
-    return fuzzerEngine != null ? fuzzerEngine.getCurrentState() : FuzzerState.NOT_STARTED;
+    return fuzzerEngine != null ? fuzzerEngine.getCurrentState() : FuzzerState.IDLE;
   }
 
   public int getResultCount() {
@@ -966,7 +956,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             try {
               if (fuzzerEngine != null) {
                 LOGGER.debug("Stopping fuzzer engine before disposal");
-                fuzzerEngine.shutdown();
+                fuzzerEngine.stop();
                 LOGGER.debug("HttpFuzzerPanel shutdown: {}", identifier);
               }
             } catch (Exception e) {
@@ -1038,7 +1028,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
         modelListeners.remove(this);
         LOGGER.debug("Removed panel from listener list before engine shutdown");
 
-        fuzzerEngine.shutdown();
+        fuzzerEngine.stop();
       }
 
       if (windowClosingListener != null) {

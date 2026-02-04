@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import burp.api.montoya.http.message.HttpRequestResponse;
 import com.theblackturtle.mutafuzz.httpclient.RequesterEngine;

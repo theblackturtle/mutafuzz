@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 import java.awt.BorderLayout;
@@ -34,7 +34,7 @@ public class FuzzerStatusPanel extends JPanel {
   private JLabel authorLabel;
 
   // Internal state
-  private FuzzerState currentState = FuzzerState.NOT_STARTED;
+  private FuzzerState currentState = FuzzerState.IDLE;
   private long completedCount = 0;
   private long totalCount = 0;
   private long errorCount = 0;
@@ -57,7 +57,7 @@ public class FuzzerStatusPanel extends JPanel {
     contentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
     contentPanel.setOpaque(true);
 
-    stateLabel = createStatusLabel("NOT_STARTED");
+    stateLabel = createStatusLabel("IDLE");
     progressLabel = createStatusLabel("Progress: 0/0");
     errorLabel = createStatusLabel("Error: 0");
     speedLabel = createStatusLabel("Speed: 0 it/s");
@@ -165,7 +165,7 @@ public class FuzzerStatusPanel extends JPanel {
 
   public void reset() {
     startTime.set(0);
-    currentState = FuzzerState.NOT_STARTED;
+    currentState = FuzzerState.IDLE;
     completedCount = 0;
     totalCount = 0;
     errorCount = 0;
@@ -209,7 +209,7 @@ public class FuzzerStatusPanel extends JPanel {
     }
 
     if (stateLabel != null) {
-      stateLabel.setText("NOT_STARTED");
+      stateLabel.setText("IDLE");
     }
     if (progressLabel != null) {
       progressLabel.setText("Progress: 0/0");
@@ -259,7 +259,7 @@ public class FuzzerStatusPanel extends JPanel {
   public void dispose() {
     try {
       startTime.set(0);
-      currentState = FuzzerState.NOT_STARTED;
+      currentState = FuzzerState.IDLE;
       completedCount = 0;
       totalCount = 0;
       errorCount = 0;

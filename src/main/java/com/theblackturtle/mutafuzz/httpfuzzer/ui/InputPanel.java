@@ -1,4 +1,4 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import com.theblackturtle.mutafuzz.util.PreferenceUtils;
 import com.theblackturtle.swing.stringlist.StringListModel;

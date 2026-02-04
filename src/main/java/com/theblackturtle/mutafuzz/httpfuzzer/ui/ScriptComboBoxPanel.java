@@ -1,8 +1,8 @@
-package com.theblackturtle.mutafuzz.httpfuzzer;
+package com.theblackturtle.mutafuzz.httpfuzzer.ui;
 
 import burp.BurpExtender;
 import burp.api.montoya.ui.Theme;
-import com.theblackturtle.mutafuzz.httpfuzzer.ScriptComboBoxModel.ScriptEntry;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.ScriptComboBoxModel.ScriptEntry;
 import com.theblackturtle.mutafuzz.util.PreferenceUtils;
 import java.awt.BorderLayout;
 import java.awt.Component;

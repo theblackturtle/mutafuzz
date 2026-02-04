@@ -49,7 +49,7 @@ public class StartFuzzersTask extends ProgressDialogWorker {
 
       try {
         FuzzerState currentState = panel.getFuzzerState();
-        if (currentState == FuzzerState.NOT_STARTED || currentState == FuzzerState.PAUSED) {
+        if (currentState == FuzzerState.IDLE || currentState == FuzzerState.PAUSED) {
           panel.startFuzzer().get();
           successCount++;
           LOGGER.debug("Started fuzzer: {}", fuzzerName);

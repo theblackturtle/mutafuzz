@@ -4,7 +4,7 @@ import com.theblackturtle.mutafuzz.dashboard.task.DeleteFuzzersTask;
 import com.theblackturtle.mutafuzz.dashboard.task.PauseFuzzersTask;
 import com.theblackturtle.mutafuzz.dashboard.task.StartFuzzersTask;
 import com.theblackturtle.mutafuzz.dashboard.task.StopFuzzersTask;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerModelListener;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
@@ -54,7 +54,7 @@ public class DashboardTablePanel extends JPanel
   private JMenuItem deleteMenuItem;
   private JMenuItem openMenuItem;
 
-  private final Map<Integer, HttpFuzzerPanel> fuzzerIdToController = new ConcurrentHashMap<>();
+  private final Map<Integer, FuzzerController> fuzzerIdToController = new ConcurrentHashMap<>();
   private volatile boolean ignoreSelectionEvents = false;
 
   public DashboardTablePanel(
@@ -166,7 +166,7 @@ public class DashboardTablePanel extends JPanel
   }
 
   private void showContextMenu(MouseEvent e) {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
 
     if (selectedControllers.isEmpty()) {
       return;
@@ -202,47 +202,47 @@ public class DashboardTablePanel extends JPanel
         });
   }
 
-  public void addFuzzer(HttpFuzzerPanel panel) {
-    if (panel == null) {
-      LOGGER.warn("Attempted to add null fuzzer panel");
+  public void addFuzzer(FuzzerController controller) {
+    if (controller == null) {
+      LOGGER.warn("Attempted to add null fuzzer controller");
       return;
     }
 
     try {
-      if (!model.containsId(panel.getFuzzerId())) {
-        FuzzerTableRowData rowData = FuzzerTableRowData.fromPanel(panel);
+      if (!model.containsId(controller.getFuzzerId())) {
+        FuzzerTableRowData rowData = FuzzerTableRowData.fromController(controller);
         model.addRow(rowData);
-        fuzzerIdToController.put(panel.getFuzzerId(), panel);
-        LOGGER.debug("Added fuzzer to table: {}", panel.getIdentifier());
+        fuzzerIdToController.put(controller.getFuzzerId(), controller);
+        LOGGER.debug("Added fuzzer to table: {}", controller.getIdentifier());
       }
     } catch (Exception e) {
       LOGGER.error("Error adding fuzzer to table: {}", e.getMessage(), e);
     }
   }
 
-  public void removeFuzzer(HttpFuzzerPanel panel) {
-    if (panel == null) {
-      LOGGER.warn("Attempted to remove null fuzzer panel");
+  public void removeFuzzer(FuzzerController controller) {
+    if (controller == null) {
+      LOGGER.warn("Attempted to remove null fuzzer controller");
       return;
     }
 
     try {
-      model.removeRow(panel.getFuzzerId());
-      fuzzerIdToController.remove(panel.getFuzzerId());
-      LOGGER.debug("Removed fuzzer from table: {}", panel.getIdentifier());
+      model.removeRow(controller.getFuzzerId());
+      fuzzerIdToController.remove(controller.getFuzzerId());
+      LOGGER.debug("Removed fuzzer from table: {}", controller.getIdentifier());
     } catch (Exception e) {
       LOGGER.error("Error removing fuzzer from table: {}", e.getMessage(), e);
     }
   }
 
-  public void updateFuzzer(HttpFuzzerPanel panel) {
-    if (panel == null) {
-      LOGGER.warn("Attempted to update null fuzzer panel");
+  public void updateFuzzer(FuzzerController controller) {
+    if (controller == null) {
+      LOGGER.warn("Attempted to update null fuzzer controller");
       return;
     }
 
     try {
-      FuzzerTableRowData rowData = FuzzerTableRowData.fromPanel(panel);
+      FuzzerTableRowData rowData = FuzzerTableRowData.fromController(controller);
       model.updateRow(rowData);
     } catch (Exception e) {
       LOGGER.error("Error updating fuzzer in table: {}", e.getMessage(), e);
@@ -259,17 +259,17 @@ public class DashboardTablePanel extends JPanel
     }
   }
 
-  public List<HttpFuzzerPanel> getSelectedControllers() {
-    List<HttpFuzzerPanel> selectedControllers = new ArrayList<>();
+  public List<FuzzerController> getSelectedControllers() {
+    List<FuzzerController> selectedControllers = new ArrayList<>();
     int[] selectedRows = table.getSelectedRows();
 
     for (int viewRow : selectedRows) {
       int modelRow = table.convertRowIndexToModel(viewRow);
       FuzzerTableRowData rowData = model.getAllRows().get(modelRow);
       if (rowData != null) {
-        HttpFuzzerPanel panel = fuzzerIdToController.get(rowData.getFuzzerId());
-        if (panel != null) {
-          selectedControllers.add(panel);
+        FuzzerController controller = fuzzerIdToController.get(rowData.getFuzzerId());
+        if (controller != null) {
+          selectedControllers.add(controller);
         }
       }
     }
@@ -277,16 +277,16 @@ public class DashboardTablePanel extends JPanel
     return selectedControllers;
   }
 
-  public List<HttpFuzzerPanel> getAllControllers() {
+  public List<FuzzerController> getAllControllers() {
     return new ArrayList<>(fuzzerIdToController.values());
   }
 
-  public boolean containsController(HttpFuzzerPanel panel) {
-    return panel != null && fuzzerIdToController.containsKey(panel.getFuzzerId());
+  public boolean containsController(FuzzerController controller) {
+    return controller != null && fuzzerIdToController.containsKey(controller.getFuzzerId());
   }
 
   private void updateMenuItemStates() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
 
     if (selectedControllers.isEmpty()) {
       startMenuItem.setEnabled(false);
@@ -299,7 +299,7 @@ public class DashboardTablePanel extends JPanel
 
     List<FuzzerState> selectedStates =
         selectedControllers.stream()
-            .map(HttpFuzzerPanel::getFuzzerState)
+            .map(FuzzerController::getFuzzerState)
             .collect(Collectors.toList());
 
     if (selectedStates.isEmpty()) {
@@ -330,7 +330,7 @@ public class DashboardTablePanel extends JPanel
   }
 
   public void startSelectedFuzzers() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
     if (selectedControllers.isEmpty()) {
       LOGGER.debug("No fuzzers selected for start action");
       return;
@@ -341,7 +341,7 @@ public class DashboardTablePanel extends JPanel
   }
 
   public void pauseSelectedFuzzers() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
     if (selectedControllers.isEmpty()) {
       LOGGER.debug("No fuzzers selected for pause action");
       return;
@@ -352,7 +352,7 @@ public class DashboardTablePanel extends JPanel
   }
 
   public void stopSelectedFuzzers() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
     if (selectedControllers.isEmpty()) {
       LOGGER.debug("No fuzzers selected for stop action");
       return;
@@ -363,7 +363,7 @@ public class DashboardTablePanel extends JPanel
   }
 
   public void deleteSelectedFuzzers() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
     if (selectedControllers.isEmpty()) {
       LOGGER.debug("No fuzzers selected for delete action");
       return;
@@ -374,16 +374,16 @@ public class DashboardTablePanel extends JPanel
   }
 
   public void openSelectedFuzzer() {
-    List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+    List<FuzzerController> selectedControllers = getSelectedControllers();
     if (selectedControllers.isEmpty()) {
       LOGGER.debug("No fuzzer selected for open action");
       return;
     }
 
-    HttpFuzzerPanel panel = selectedControllers.get(0);
+    FuzzerController controller = selectedControllers.get(0);
     try {
-      panel.showFrame();
-      LOGGER.debug("Opened fuzzer window via Panel: {}", panel.getIdentifier());
+      controller.showFrame();
+      LOGGER.debug("Opened fuzzer window via Controller: {}", controller.getIdentifier());
     } catch (Exception e) {
       LOGGER.error("Error opening fuzzer window: {}", e.getMessage(), e);
     }
@@ -398,40 +398,41 @@ public class DashboardTablePanel extends JPanel
     return table;
   }
 
-  public List<HttpFuzzerPanel> getSelectedPanels() {
+  public List<FuzzerController> getSelectedPanels() {
     try {
-      List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
+      List<FuzzerController> selectedControllers = getSelectedControllers();
       return new ArrayList<>(selectedControllers);
     } catch (Exception e) {
-      LOGGER.error("Error getting selected panels: {}", e.getMessage(), e);
+      LOGGER.error("Error getting selected controllers: {}", e.getMessage(), e);
       return new ArrayList<>();
     }
   }
 
-  private void selectPanels(List<HttpFuzzerPanel> panels) {
-    if (panels == null) {
-      panels = new ArrayList<>();
+  private void selectControllers(List<FuzzerController> controllers) {
+    if (controllers == null) {
+      controllers = new ArrayList<>();
     }
 
-    final List<HttpFuzzerPanel> finalPanels = panels;
+    final List<FuzzerController> finalControllers = controllers;
     SwingUtilities.invokeLater(
         () -> {
           try {
             ignoreSelectionEvents = true;
 
             if (table == null) {
-              LOGGER.warn("Cannot select panels: table is null");
+              LOGGER.warn("Cannot select controllers: table is null");
               return;
             }
 
             table.clearSelection();
 
             List<FuzzerTableRowData> allRows = model.getAllRows();
-            for (HttpFuzzerPanel panel : finalPanels) {
+            for (FuzzerController controller : finalControllers) {
               int row = -1;
               for (int i = 0; i < allRows.size(); i++) {
-                HttpFuzzerPanel tablePanel = fuzzerIdToController.get(allRows.get(i).getFuzzerId());
-                if (tablePanel != null && tablePanel == panel) {
+                FuzzerController tableController =
+                    fuzzerIdToController.get(allRows.get(i).getFuzzerId());
+                if (tableController != null && tableController == controller) {
                   row = i;
                   break;
                 }
@@ -444,9 +445,9 @@ public class DashboardTablePanel extends JPanel
               }
             }
 
-            LOGGER.debug("Programmatically selected {} panels", finalPanels.size());
+            LOGGER.debug("Programmatically selected {} controllers", finalControllers.size());
           } catch (Exception e) {
-            LOGGER.error("Error selecting panels: {}", e.getMessage(), e);
+            LOGGER.error("Error selecting controllers: {}", e.getMessage(), e);
           } finally {
             ignoreSelectionEvents = false;
           }
@@ -478,10 +479,11 @@ public class DashboardTablePanel extends JPanel
 
   @Override
   public void onSelectionChanged(
-      List<HttpFuzzerPanel> selectedControllers, HttpFuzzerPanel primarySelection) {
+      List<FuzzerController> selectedControllers, FuzzerController primarySelection) {
     if (!ignoreSelectionEvents) {
-      LOGGER.debug("Received selection change notification: {} panels", selectedControllers.size());
-      selectPanels(selectedControllers);
+      LOGGER.debug(
+          "Received selection change notification: {} controllers", selectedControllers.size());
+      selectControllers(selectedControllers);
     }
   }
 
@@ -497,9 +499,9 @@ public class DashboardTablePanel extends JPanel
     SwingUtilities.invokeLater(
         () -> {
           try {
-            HttpFuzzerPanel panel = fuzzerIdToController.get(fuzzerId);
-            if (panel != null) {
-              updateFuzzer(panel);
+            FuzzerController controller = fuzzerIdToController.get(fuzzerId);
+            if (controller != null) {
+              updateFuzzer(controller);
             } else {
               LOGGER.warn("Received state change for unknown fuzzerId: {}", fuzzerId);
             }
@@ -514,9 +516,9 @@ public class DashboardTablePanel extends JPanel
     SwingUtilities.invokeLater(
         () -> {
           try {
-            HttpFuzzerPanel panel = fuzzerIdToController.get(fuzzerId);
-            if (panel != null) {
-              updateFuzzer(panel);
+            FuzzerController controller = fuzzerIdToController.get(fuzzerId);
+            if (controller != null) {
+              updateFuzzer(controller);
               LOGGER.trace("Updated table row for fuzzer {} after result added", fuzzerId);
             }
           } catch (Exception e) {
@@ -534,9 +536,9 @@ public class DashboardTablePanel extends JPanel
     SwingUtilities.invokeLater(
         () -> {
           try {
-            HttpFuzzerPanel panel = fuzzerIdToController.get(fuzzerId);
-            if (panel != null) {
-              updateFuzzer(panel);
+            FuzzerController controller = fuzzerIdToController.get(fuzzerId);
+            if (controller != null) {
+              updateFuzzer(controller);
               LOGGER.trace(
                   "Updated table row for fuzzer {} after counter update: {}/{} (errors: {})",
                   fuzzerId,
@@ -556,7 +558,7 @@ public class DashboardTablePanel extends JPanel
   @Override
   public void onFuzzerDisposed(int fuzzerId) {
     // Execute synchronously - notification is already on EDT from
-    // HttpFuzzerPanel.dispose()
+    // FuzzerController.dispose()
     // Using invokeLater() would delay cleanup and cause fuzzer to remain visible
     // after disposal
     if (!SwingUtilities.isEventDispatchThread()) {
@@ -564,9 +566,9 @@ public class DashboardTablePanel extends JPanel
     }
 
     try {
-      HttpFuzzerPanel panel = fuzzerIdToController.get(fuzzerId);
-      if (panel != null) {
-        // Don't call panel.removeFuzzerModelListener(this) - panel is disposing,
+      FuzzerController controller = fuzzerIdToController.get(fuzzerId);
+      if (controller != null) {
+        // Don't call controller.removeFuzzerModelListener(this) - controller is disposing,
         // will clear list anyway. Calling it here is redundant and could cause issues.
 
         // Remove from table model (synchronous, immediate visibility)
@@ -595,13 +597,13 @@ public class DashboardTablePanel extends JPanel
       SwingUtilities.invokeLater(
           () -> {
             try {
-              List<HttpFuzzerPanel> selectedControllers = getSelectedControllers();
-              HttpFuzzerPanel primarySelection =
+              List<FuzzerController> selectedControllers = getSelectedControllers();
+              FuzzerController primarySelection =
                   selectedControllers.isEmpty() ? null : selectedControllers.get(0);
 
               LOGGER.debug(
-                  "Table selection changed: {} panels selected", selectedControllers.size());
-              selectionCoordinator.updatePanelSelection(selectedControllers, primarySelection);
+                  "Table selection changed: {} controllers selected", selectedControllers.size());
+              selectionCoordinator.updateControllerSelection(selectedControllers, primarySelection);
             } catch (Exception ex) {
               LOGGER.error("Error handling selection change: {}", ex.getMessage(), ex);
             }

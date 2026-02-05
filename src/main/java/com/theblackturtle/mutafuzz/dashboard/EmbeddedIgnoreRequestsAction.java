@@ -1,6 +1,6 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.VariationsAnalyzer;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
@@ -20,24 +20,24 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Adds selected requests from embedded results to their source panel's WildcardFilter. Handles
- * requests from multiple HttpFuzzerPanels by mapping sourceFuzzerId to panel.
+ * requests from multiple FuzzerControllers by mapping sourceFuzzerId to panel.
  *
  * <p>Unlike LogTablePanel which has a single WildcardFilter, EmbeddedResultsPanel aggregates
  * requests from multiple panels, each with its own WildcardFilter.
  */
 public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestObject> {
   private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedIgnoreRequestsAction.class);
-  private final Supplier<List<HttpFuzzerPanel>> controllersSupplier;
+  private final Supplier<List<FuzzerController>> controllersSupplier;
   private final Runnable onFilterChanged;
 
   /**
    * Creates ignore action with panel supplier.
    *
-   * @param controllersSupplier Provides current list of HttpFuzzerPanels
+   * @param controllersSupplier Provides current list of FuzzerControllers
    * @param onFilterChanged Callback to trigger table refresh (invoked on EDT)
    */
   public EmbeddedIgnoreRequestsAction(
-      Supplier<List<HttpFuzzerPanel>> controllersSupplier, Runnable onFilterChanged) {
+      Supplier<List<FuzzerController>> controllersSupplier, Runnable onFilterChanged) {
     this.controllersSupplier = controllersSupplier;
     this.onFilterChanged = onFilterChanged;
   }
@@ -68,7 +68,7 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
       return false;
     }
 
-    List<HttpFuzzerPanel> controllers = controllersSupplier.get();
+    List<FuzzerController> controllers = controllersSupplier.get();
     return controllers != null && !controllers.isEmpty();
   }
 
@@ -82,7 +82,7 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
       return;
     }
 
-    List<HttpFuzzerPanel> controllers = controllersSupplier.get();
+    List<FuzzerController> controllers = controllersSupplier.get();
     if (controllers == null || controllers.isEmpty()) {
       LOGGER.warn("No panels available for ignore action");
       return;
@@ -96,12 +96,12 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
   /** Background worker that groups requests by source panel and adds to appropriate filters. */
   private class EmbeddedIgnoreWorker extends ProgressDialogWorker {
     private final List<RequestObject> requests;
-    private final List<HttpFuzzerPanel> controllers;
+    private final List<FuzzerController> controllers;
 
     EmbeddedIgnoreWorker(
         java.awt.Component parent,
         List<RequestObject> requests,
-        List<HttpFuzzerPanel> controllers) {
+        List<FuzzerController> controllers) {
       super(parent, "Ignoring Requests", requests.size());
       this.requests = requests;
       this.controllers = controllers;
@@ -111,9 +111,9 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
     protected Void doInBackground() throws Exception {
       LOGGER.debug("Starting embedded ignore operation for {} requests", requests.size());
 
-      Map<Integer, HttpFuzzerPanel> controllerMap =
+      Map<Integer, FuzzerController> controllerMap =
           controllers.stream()
-              .collect(Collectors.toMap(HttpFuzzerPanel::getFuzzerId, c -> c, (c1, c2) -> c1));
+              .collect(Collectors.toMap(FuzzerController::getFuzzerId, c -> c, (c1, c2) -> c1));
 
       Map<Integer, List<RequestObject>> requestsByFuzzerId =
           requests.stream().collect(Collectors.groupingBy(RequestObject::getSourceFuzzerId));
@@ -124,7 +124,7 @@ public class EmbeddedIgnoreRequestsAction implements RequestTableAction<RequestO
         int fuzzerId = entry.getKey();
         List<RequestObject> fuzzerRequests = entry.getValue();
 
-        HttpFuzzerPanel panel = controllerMap.get(fuzzerId);
+        FuzzerController panel = controllerMap.get(fuzzerId);
         if (panel == null) {
           LOGGER.warn(
               "Panel not found for fuzzer ID {}, skipping {} requests",

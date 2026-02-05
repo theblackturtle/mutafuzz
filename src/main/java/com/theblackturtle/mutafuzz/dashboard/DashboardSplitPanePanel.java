@@ -1,6 +1,6 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.util.PreferenceUtils;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -218,9 +218,9 @@ public class DashboardSplitPanePanel extends JPanel {
   /**
    * Retrieves all active fuzzer UI panels.
    *
-   * @return List of all HttpFuzzerPanels currently managed by dashboard
+   * @return List of all FuzzerControllers currently managed by dashboard
    */
-  public List<HttpFuzzerPanel> getAllPanels() {
+  public List<FuzzerController> getAllPanels() {
     if (dashboardTablePanel == null) {
       return new ArrayList<>();
     }
@@ -236,10 +236,10 @@ public class DashboardSplitPanePanel extends JPanel {
   /**
    * Checks whether a specific fuzzer panel is currently managed.
    *
-   * @param panel The HttpFuzzerPanel to verify
+   * @param panel The FuzzerController to verify
    * @return true if panel exists in dashboard, false otherwise
    */
-  public boolean hasPanel(HttpFuzzerPanel panel) {
+  public boolean hasPanel(FuzzerController panel) {
     if (panel == null || dashboardTablePanel == null) {
       return false;
     }
@@ -255,10 +255,10 @@ public class DashboardSplitPanePanel extends JPanel {
   /**
    * Retrieves currently selected fuzzer panels.
    *
-   * @return List of selected HttpFuzzerPanels
+   * @return List of selected FuzzerControllers
    */
-  public List<HttpFuzzerPanel> getSelectedPanels() {
-    return selectionCoordinator.getSelectedPanels();
+  public List<FuzzerController> getSelectedPanels() {
+    return selectionCoordinator.getSelectedControllers();
   }
 
   /** Clears all panel selections via coordinator. */

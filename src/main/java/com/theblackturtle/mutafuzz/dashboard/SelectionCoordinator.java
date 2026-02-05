@@ -1,6 +1,6 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -20,8 +20,8 @@ public class SelectionCoordinator {
   private static final Logger LOGGER = LoggerFactory.getLogger(SelectionCoordinator.class);
 
   private final List<WeakReference<SelectionListener>> listeners = new CopyOnWriteArrayList<>();
-  private volatile List<HttpFuzzerPanel> selectedControllers = new ArrayList<>();
-  private volatile HttpFuzzerPanel primarySelection = null;
+  private volatile List<FuzzerController> selectedControllers = new ArrayList<>();
+  private volatile FuzzerController primarySelection = null;
 
   /** Callback interface for selection state changes */
   public interface SelectionListener {
@@ -30,7 +30,7 @@ public class SelectionCoordinator {
      * @param primarySelection first selected session, determines embedded results display
      */
     void onSelectionChanged(
-        List<HttpFuzzerPanel> selectedControllers, HttpFuzzerPanel primarySelection);
+        List<FuzzerController> selectedControllers, FuzzerController primarySelection);
 
     /**
      * @param requestObject selected request from embedded results table
@@ -77,8 +77,8 @@ public class SelectionCoordinator {
    * Primary selection determines which fuzzer's results display in embedded panel. Defensive copy
    * prevents external modification of internal state.
    */
-  public void updatePanelSelection(
-      List<HttpFuzzerPanel> selectedControllers, HttpFuzzerPanel primarySelection) {
+  public void updateControllerSelection(
+      List<FuzzerController> selectedControllers, FuzzerController primarySelection) {
     if (selectedControllers == null) {
       selectedControllers = new ArrayList<>();
     }
@@ -88,7 +88,7 @@ public class SelectionCoordinator {
     this.primarySelection = primarySelection;
 
     LOGGER.debug(
-        "Panel selection updated: {} panels selected, primary: {}",
+        "Controller selection updated: {} controllers selected, primary: {}",
         selectedControllers.size(),
         primarySelection != null ? primarySelection.getFuzzerId() : "none");
 
@@ -110,11 +110,11 @@ public class SelectionCoordinator {
   }
 
   /** Defensive copy prevents external modification of selection state. */
-  public List<HttpFuzzerPanel> getSelectedPanels() {
+  public List<FuzzerController> getSelectedControllers() {
     return new ArrayList<>(selectedControllers);
   }
 
-  public HttpFuzzerPanel getPrimarySelection() {
+  public FuzzerController getPrimarySelection() {
     return primarySelection;
   }
 
@@ -123,12 +123,12 @@ public class SelectionCoordinator {
   }
 
   public void clearSelection() {
-    updatePanelSelection(new ArrayList<>(), null);
+    updateControllerSelection(new ArrayList<>(), null);
   }
 
   /** Opportunistically cleans dead weak references during notification iteration. */
   private void notifySelectionChanged(
-      List<HttpFuzzerPanel> selectedControllers, HttpFuzzerPanel primarySelection) {
+      List<FuzzerController> selectedControllers, FuzzerController primarySelection) {
     Iterator<WeakReference<SelectionListener>> iterator = listeners.iterator();
     int notified = 0;
     int cleaned = 0;

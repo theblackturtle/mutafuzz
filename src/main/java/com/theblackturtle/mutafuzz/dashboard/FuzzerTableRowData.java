@@ -1,6 +1,6 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 
 /**
@@ -34,16 +34,16 @@ public class FuzzerTableRowData {
     this.stateDisplayText = stateDisplayText;
   }
 
-  /** Creates row data snapshot from panel's current state. */
-  public static FuzzerTableRowData fromPanel(HttpFuzzerPanel panel) {
-    FuzzerState state = panel.getFuzzerState();
+  /** Creates row data snapshot from controller's current state. */
+  public static FuzzerTableRowData fromController(FuzzerController controller) {
+    FuzzerState state = controller.getFuzzerState();
     return new FuzzerTableRowData(
-        panel.getFuzzerId(),
-        panel.getIdentifier(),
+        controller.getFuzzerId(),
+        controller.getIdentifier(),
         state,
-        panel.getResultCount(),
-        panel.getErrorCount(),
-        panel.getProgressText(),
+        controller.getResultCount(),
+        controller.getErrorCount(),
+        controller.getProgressText(),
         state != null ? state.toString() : "UNKNOWN");
   }
 

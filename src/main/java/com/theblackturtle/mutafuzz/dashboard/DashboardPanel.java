@@ -3,9 +3,11 @@ package com.theblackturtle.mutafuzz.dashboard;
 import burp.BurpExtender;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.theblackturtle.mutafuzz.httpclient.BurpRequester;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.ui.FuzzerOptions;
+import com.theblackturtle.mutafuzz.httpfuzzer.ui.HttpFuzzerFrame;
 import com.theblackturtle.mutafuzz.httpfuzzer.ui.RequestTemplateMode;
+import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.logtable.LogTablePanel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -144,9 +146,9 @@ public class DashboardPanel extends JTabbedPane {
    *
    * @param request HTTP request template with %s placeholders
    * @param showUI Whether to immediately display fuzzer UI (false for headless mode)
-   * @return Created HttpFuzzerPanel instance
+   * @return Created FuzzerController instance
    */
-  public HttpFuzzerPanel createFuzzerFromBurp(HttpRequest request, boolean showUI) {
+  public FuzzerController createFuzzerFromBurp(HttpRequest request, boolean showUI) {
     return createFuzzerFromBurp(request, showUI, new FuzzerOptions());
   }
 
@@ -154,42 +156,55 @@ public class DashboardPanel extends JTabbedPane {
    * Creates fuzzer with custom configuration options. Supports bulk operations requiring
    * pre-configured payloads and settings.
    *
+   * <p>Dependencies are created ONCE in correct order: 1. WildcardFilter (independent) 2.
+   * LogTablePanel (depends on WildcardFilter) 3. FuzzerController (depends on LogTablePanel,
+   * WildcardFilter) 4. HttpFuzzerFrame (depends on FuzzerController, optional)
+   *
    * @param request HTTP request template with %s placeholders
    * @param showUI Whether to immediately display fuzzer UI
    * @param options Pre-configured fuzzer options including payloads
-   * @return Created HttpFuzzerPanel instance
+   * @return Created FuzzerController instance
    */
-  public HttpFuzzerPanel createFuzzerFromBurp(
+  public FuzzerController createFuzzerFromBurp(
       HttpRequest request, boolean showUI, FuzzerOptions options) {
     try {
       int fuzzerId = model.generateNextFuzzerId();
       String identifier = "Fuzzer-" + UUID.randomUUID().toString().substring(0, 8);
 
-      HttpFuzzerPanel panel = new HttpFuzzerPanel(fuzzerId, identifier, request, options);
-
+      // 1. Create dependencies ONCE - eliminates duplicate LogTablePanel creation
+      WildcardFilter wildcardFilter = new WildcardFilter();
       LogTablePanel logTablePanel =
           new LogTablePanel(
               fuzzerId,
               identifier,
               BurpExtender.MONTOYA_API,
               new BurpRequester(BurpExtender.MONTOYA_API),
-              panel.getWildcardFilter());
-      panel.setLogTablePanel(logTablePanel);
+              wildcardFilter);
 
-      model.addSession(fuzzerId, panel);
+      // 2. Create controller with injected dependencies
+      FuzzerController controller =
+          new FuzzerController(
+              fuzzerId, identifier, request, options, logTablePanel, wildcardFilter);
 
-      // Register with dashboard regardless of UI visibility for consistent state
-      // tracking
-      registerEngineWithDashboard(panel);
-
-      String urlForLog = request != null ? request.url() : "empty template";
-      LOGGER.debug("Created fuzzer panel {} for URL: {}", fuzzerId, urlForLog);
-
+      // 3. Optionally create UI frame
       if (showUI) {
-        panel.showFrame();
+        HttpFuzzerFrame frame = new HttpFuzzerFrame(controller, options);
+        controller.setFrame(frame);
       }
 
-      return panel;
+      model.addSession(fuzzerId, controller);
+
+      // Register with dashboard regardless of UI visibility for consistent state tracking
+      registerControllerWithDashboard(controller);
+
+      String urlForLog = request != null ? request.url() : "empty template";
+      LOGGER.debug("Created fuzzer controller {} for URL: {}", fuzzerId, urlForLog);
+
+      if (showUI) {
+        controller.showFrame();
+      }
+
+      return controller;
 
     } catch (Exception e) {
       LOGGER.error("Failed to create fuzzer from Burp integration: {}", e.getMessage(), e);
@@ -204,9 +219,9 @@ public class DashboardPanel extends JTabbedPane {
    * @param request HTTP request template with %s placeholders
    * @param showUI Whether to immediately display fuzzer UI
    * @param payloads Payload list for first wordlist
-   * @return Created HttpFuzzerPanel instance
+   * @return Created FuzzerController instance
    */
-  public HttpFuzzerPanel createFuzzerFromBurp(
+  public FuzzerController createFuzzerFromBurp(
       HttpRequest request, boolean showUI, List<String> payloads) {
     FuzzerOptions options = new FuzzerOptions();
     List<List<String>> wordlists = new ArrayList<>();
@@ -219,31 +234,31 @@ public class DashboardPanel extends JTabbedPane {
    * Creates fuzzer in headless mode for programmatic usage. No UI components initialized.
    *
    * @param request HTTP request template with %s placeholders
-   * @return Created HttpFuzzerPanel instance
+   * @return Created FuzzerController instance
    */
-  public HttpFuzzerPanel createHeadlessFuzzer(HttpRequest request) {
+  public FuzzerController createHeadlessFuzzer(HttpRequest request) {
     return createFuzzerFromBurp(request, false);
   }
 
-  /** Retrieves fuzzer panel by unique ID. */
-  public HttpFuzzerPanel getController(int fuzzerId) {
+  /** Retrieves fuzzer controller by unique ID. */
+  public FuzzerController getController(int fuzzerId) {
     return model.getSession(fuzzerId);
   }
 
-  /** Retrieves all active fuzzer panels. */
-  public List<HttpFuzzerPanel> getAllControllers() {
+  /** Retrieves all active fuzzer controllers. */
+  public List<FuzzerController> getAllControllers() {
     return model.getAllSessions();
   }
 
   /** Removes and disposes fuzzer completely, cleaning up all resources. */
   public void removeFuzzer(int fuzzerId) {
     try {
-      HttpFuzzerPanel panel = model.removeSession(fuzzerId);
-      if (panel != null) {
-        unregisterEngineFromDashboard(panel);
+      FuzzerController controller = model.removeSession(fuzzerId);
+      if (controller != null) {
+        unregisterControllerFromDashboard(controller);
 
         // Dashboard-initiated disposal prevents circular cleanup calls
-        panel.dispose();
+        controller.dispose();
 
         LOGGER.debug("Removed and disposed fuzzer {} (Dashboard-initiated)", fuzzerId);
       }
@@ -264,15 +279,15 @@ public class DashboardPanel extends JTabbedPane {
   }
 
   /**
-   * Registers fuzzer engine with dashboard table for state tracking. Called for all fuzzers
+   * Registers fuzzer controller with dashboard table for state tracking. Called for all fuzzers
    * including headless instances to maintain consistent visibility.
    *
-   * <p>Registration is synchronous to prevent race condition where panel disposes before listener
-   * is registered, causing onFuzzerDisposed() to never be called.
+   * <p>Registration is synchronous to prevent race condition where controller disposes before
+   * listener is registered, causing onFuzzerDisposed() to never be called.
    */
-  private void registerEngineWithDashboard(HttpFuzzerPanel panel) {
-    if (panel == null) {
-      LOGGER.warn("Attempted to register null panel");
+  private void registerControllerWithDashboard(FuzzerController controller) {
+    if (controller == null) {
+      LOGGER.warn("Attempted to register null controller");
       return;
     }
 
@@ -281,13 +296,14 @@ public class DashboardPanel extends JTabbedPane {
     Runnable registrationTask =
         () -> {
           try {
-            tablePanel.addFuzzer(panel);
-            panel.addFuzzerModelListener(tablePanel);
+            tablePanel.addFuzzer(controller);
+            controller.addFuzzerModelListener(tablePanel);
 
             LOGGER.debug(
-                "Registered panel {} with dashboard table and as listener", panel.getFuzzerId());
+                "Registered controller {} with dashboard table and as listener",
+                controller.getFuzzerId());
           } catch (Exception e) {
-            LOGGER.error("Failed to register panel with dashboard: {}", e.getMessage(), e);
+            LOGGER.error("Failed to register controller with dashboard: {}", e.getMessage(), e);
           }
         };
 
@@ -305,39 +321,39 @@ public class DashboardPanel extends JTabbedPane {
   }
 
   /**
-   * Unregisters fuzzer engine from dashboard table during cleanup. Called for all fuzzers
+   * Unregisters fuzzer controller from dashboard table during cleanup. Called for all fuzzers
    * regardless of UI state.
    */
-  private void unregisterEngineFromDashboard(HttpFuzzerPanel panel) {
-    if (panel == null) {
-      LOGGER.warn("Attempted to unregister null panel");
+  private void unregisterControllerFromDashboard(FuzzerController controller) {
+    if (controller == null) {
+      LOGGER.warn("Attempted to unregister null controller");
       return;
     }
 
     SwingUtilities.invokeLater(
         () -> {
           try {
-            tablePanel.removeFuzzer(panel);
+            tablePanel.removeFuzzer(controller);
             LOGGER.debug(
-                "Unregistered panel {} from dashboard table and engine listener",
-                panel.getFuzzerId());
+                "Unregistered controller {} from dashboard table and engine listener",
+                controller.getFuzzerId());
           } catch (Exception e) {
-            LOGGER.error("Failed to unregister panel from dashboard: {}", e.getMessage(), e);
+            LOGGER.error("Failed to unregister controller from dashboard: {}", e.getMessage(), e);
           }
         });
   }
 
   public void terminateAll() {
-    LOGGER.debug("Terminating all fuzzers - {} panels active", model.getSessionCount());
+    LOGGER.debug("Terminating all fuzzers - {} controllers active", model.getSessionCount());
 
-    List<HttpFuzzerPanel> allSessions = model.getAllSessions();
+    List<FuzzerController> allSessions = model.getAllSessions();
 
     allSessions.forEach(
-        panel -> {
+        controller -> {
           try {
-            panel.dispose();
+            controller.dispose();
           } catch (Exception e) {
-            LOGGER.error("Error disposing panel: {}", e.getMessage(), e);
+            LOGGER.error("Error disposing controller: {}", e.getMessage(), e);
           }
         });
 

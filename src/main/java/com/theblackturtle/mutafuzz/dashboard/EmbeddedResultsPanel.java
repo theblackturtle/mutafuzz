@@ -1,7 +1,7 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
 import burp.BurpExtender;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerModelListener;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
@@ -54,7 +54,7 @@ public class EmbeddedResultsPanel extends JPanel
 
   // State management
   private final Set<Integer> trackedFuzzerIds = ConcurrentHashMap.newKeySet();
-  private volatile List<HttpFuzzerPanel> currentControllers = new ArrayList<>();
+  private volatile List<FuzzerController> currentControllers = new ArrayList<>();
   private final AtomicBoolean isDisposed = new AtomicBoolean(false);
   private final AtomicLong selectionSequence = new AtomicLong(0);
 
@@ -223,10 +223,10 @@ public class EmbeddedResultsPanel extends JPanel
     SwingUtilities.invokeLater(this::reloadAllRequests);
   }
 
-  private void loadInitialRequests(List<HttpFuzzerPanel> controllers, long sequence) {
+  private void loadInitialRequests(List<FuzzerController> controllers, long sequence) {
     List<RequestObject> allRequests = new ArrayList<>();
 
-    for (HttpFuzzerPanel panel : controllers) {
+    for (FuzzerController panel : controllers) {
       if (panel == null || panel.getLogTablePanel() == null) {
         continue;
       }
@@ -272,7 +272,7 @@ public class EmbeddedResultsPanel extends JPanel
   private void reloadAllRequests() {
     final long sequence = selectionSequence.get();
 
-    List<HttpFuzzerPanel> controllers = selectionCoordinator.getSelectedPanels();
+    List<FuzzerController> controllers = selectionCoordinator.getSelectedControllers();
     if (controllers == null || controllers.isEmpty()) {
       LOGGER.debug("No fuzzers selected for reload");
       updateStatus("No sessions selected");
@@ -314,11 +314,11 @@ public class EmbeddedResultsPanel extends JPanel
     return trackedFuzzerIds.size();
   }
 
-  public List<HttpFuzzerPanel> getCurrentControllers() {
+  public List<FuzzerController> getCurrentControllers() {
     return new ArrayList<>(currentControllers);
   }
 
-  public void setCurrentControllers(List<HttpFuzzerPanel> controllers) {
+  public void setCurrentControllers(List<FuzzerController> controllers) {
     this.currentControllers =
         controllers != null ? new ArrayList<>(controllers) : new ArrayList<>();
     LOGGER.debug("Updated current controllers: {} panels", this.currentControllers.size());
@@ -367,7 +367,7 @@ public class EmbeddedResultsPanel extends JPanel
   // Selection coordinator integration
   @Override
   public void onSelectionChanged(
-      List<HttpFuzzerPanel> selectedControllers, HttpFuzzerPanel primarySelection) {
+      List<FuzzerController> selectedControllers, FuzzerController primarySelection) {
 
     // Increment sequence BEFORE queuing to EDT
     final long sequence = selectionSequence.incrementAndGet();
@@ -390,8 +390,8 @@ public class EmbeddedResultsPanel extends JPanel
                 selectedControllers == null ? 0 : selectedControllers.size());
 
             // STEP 1: Unregister from old controllers
-            List<HttpFuzzerPanel> oldControllers = currentControllers;
-            for (HttpFuzzerPanel panel : oldControllers) {
+            List<FuzzerController> oldControllers = currentControllers;
+            for (FuzzerController panel : oldControllers) {
               if (panel != null) {
                 panel.removeFuzzerModelListener(this);
                 LOGGER.debug("Unregistered listener from fuzzer {}", panel.getFuzzerId());
@@ -413,7 +413,7 @@ public class EmbeddedResultsPanel extends JPanel
             setCurrentControllers(selectedControllers);
             selectedControllers.forEach(panel -> addTrackedFuzzerId(panel.getFuzzerId()));
 
-            for (HttpFuzzerPanel panel : selectedControllers) {
+            for (FuzzerController panel : selectedControllers) {
               if (panel != null) {
                 panel.addFuzzerModelListener(this);
                 LOGGER.debug("Registered listener to fuzzer {}", panel.getFuzzerId());
@@ -488,7 +488,7 @@ public class EmbeddedResultsPanel extends JPanel
   @Override
   public void onFuzzerDisposed(int fuzzerId) {
     // Execute synchronously - notification is already on EDT from
-    // HttpFuzzerPanel.dispose()
+    // FuzzerController.dispose()
     // Using invokeLater() would delay cleanup unnecessarily
     if (!SwingUtilities.isEventDispatchThread()) {
       LOGGER.warn("onFuzzerDisposed called off EDT for fuzzer {}", fuzzerId);
@@ -499,8 +499,8 @@ public class EmbeddedResultsPanel extends JPanel
       trackedFuzzerIds.remove(fuzzerId);
 
       // Find and remove panel from current controllers
-      HttpFuzzerPanel panelToRemove = null;
-      for (HttpFuzzerPanel panel : currentControllers) {
+      FuzzerController panelToRemove = null;
+      for (FuzzerController panel : currentControllers) {
         if (panel != null && panel.getFuzzerId() == fuzzerId) {
           panelToRemove = panel;
           break;
@@ -528,7 +528,7 @@ public class EmbeddedResultsPanel extends JPanel
       isDisposed.set(true);
 
       // Unregister from all tracked fuzzers (prevent events after disposal)
-      for (HttpFuzzerPanel panel : currentControllers) {
+      for (FuzzerController panel : currentControllers) {
         if (panel != null) {
           panel.removeFuzzerModelListener(this);
           LOGGER.debug("Unregistered listener from fuzzer {} during disposal", panel.getFuzzerId());

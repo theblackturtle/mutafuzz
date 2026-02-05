@@ -1,6 +1,6 @@
 package com.theblackturtle.mutafuzz.dashboard;
 
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DashboardPanelModel {
   // Thread-safe storage for concurrent access from UI and background threads
-  private final Map<Integer, HttpFuzzerPanel> fuzzerSessions = new ConcurrentHashMap<>();
+  private final Map<Integer, FuzzerController> fuzzerSessions = new ConcurrentHashMap<>();
 
   // ID generation for new fuzzers
   private final AtomicInteger nextFuzzerId = new AtomicInteger(1);
@@ -31,23 +31,23 @@ public class DashboardPanelModel {
    * Registers a new fuzzer session.
    *
    * @param fuzzerId Unique fuzzer identifier
-   * @param panel Fuzzer panel instance
-   * @throws IllegalArgumentException if panel is null
+   * @param controller Fuzzer controller instance
+   * @throws IllegalArgumentException if controller is null
    */
-  public void addSession(int fuzzerId, HttpFuzzerPanel panel) {
-    if (panel == null) {
-      throw new IllegalArgumentException("Panel cannot be null");
+  public void addSession(int fuzzerId, FuzzerController controller) {
+    if (controller == null) {
+      throw new IllegalArgumentException("Controller cannot be null");
     }
-    fuzzerSessions.put(fuzzerId, panel);
+    fuzzerSessions.put(fuzzerId, controller);
   }
 
   /**
    * Removes and returns fuzzer session.
    *
    * @param fuzzerId Fuzzer ID to remove
-   * @return Removed panel, or null if not found
+   * @return Removed controller, or null if not found
    */
-  public HttpFuzzerPanel removeSession(int fuzzerId) {
+  public FuzzerController removeSession(int fuzzerId) {
     return fuzzerSessions.remove(fuzzerId);
   }
 
@@ -55,9 +55,9 @@ public class DashboardPanelModel {
    * Retrieves fuzzer session by ID.
    *
    * @param fuzzerId Fuzzer ID to lookup
-   * @return Panel instance, or null if not found
+   * @return Controller instance, or null if not found
    */
-  public HttpFuzzerPanel getSession(int fuzzerId) {
+  public FuzzerController getSession(int fuzzerId) {
     return fuzzerSessions.get(fuzzerId);
   }
 
@@ -65,9 +65,9 @@ public class DashboardPanelModel {
    * Returns snapshot of all active sessions. Defensive copy prevents external modification of
    * internal state.
    *
-   * @return List of all panel instances
+   * @return List of all controller instances
    */
-  public List<HttpFuzzerPanel> getAllSessions() {
+  public List<FuzzerController> getAllSessions() {
     return new ArrayList<>(fuzzerSessions.values());
   }
 
@@ -89,10 +89,10 @@ public class DashboardPanelModel {
   /**
    * Removes all sessions and returns them for cleanup.
    *
-   * @return List of removed panels
+   * @return List of removed controllers
    */
-  public List<HttpFuzzerPanel> clearAllSessions() {
-    List<HttpFuzzerPanel> removed = new ArrayList<>(fuzzerSessions.values());
+  public List<FuzzerController> clearAllSessions() {
+    List<FuzzerController> removed = new ArrayList<>(fuzzerSessions.values());
     fuzzerSessions.clear();
     return removed;
   }

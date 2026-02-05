@@ -1,7 +1,7 @@
 package com.theblackturtle.mutafuzz.dashboard.task;
 
 import burp.BurpExtender;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 import com.theblackturtle.mutafuzz.widget.ProgressDialogWorker;
 import java.awt.Component;
@@ -13,11 +13,11 @@ import org.slf4j.LoggerFactory;
 public class StopFuzzersTask extends ProgressDialogWorker {
   private static final Logger LOGGER = LoggerFactory.getLogger(StopFuzzersTask.class);
 
-  private final List<HttpFuzzerPanel> selectedPanels;
+  private final List<FuzzerController> selectedPanels;
   private int successCount = 0;
   private int errorCount = 0;
 
-  public StopFuzzersTask(Component parent, List<HttpFuzzerPanel> selectedPanels) {
+  public StopFuzzersTask(Component parent, List<FuzzerController> selectedPanels) {
     super(parent, "Stopping Fuzzers", selectedPanels.size());
     this.selectedPanels = selectedPanels;
   }
@@ -40,13 +40,13 @@ public class StopFuzzersTask extends ProgressDialogWorker {
         break;
       }
 
-      HttpFuzzerPanel panel = selectedPanels.get(i);
+      FuzzerController panel = selectedPanels.get(i);
       String fuzzerName = panel.getIdentifier();
 
       try {
         FuzzerState currentState = panel.getFuzzerState();
         if (currentState == FuzzerState.RUNNING || currentState == FuzzerState.PAUSED) {
-          panel.stopFuzzer().get();
+          panel.stop().get();
           successCount++;
           LOGGER.debug("Stopped fuzzer: {}", fuzzerName);
         }

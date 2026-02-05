@@ -1,7 +1,7 @@
 package com.theblackturtle.mutafuzz.dashboard.task;
 
 import burp.BurpExtender;
-import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
+import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerController;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.FuzzerState;
 import com.theblackturtle.mutafuzz.widget.ProgressDialogWorker;
 import java.awt.Component;
@@ -16,12 +16,12 @@ import org.slf4j.LoggerFactory;
 public class StartFuzzersTask extends ProgressDialogWorker {
   private static final Logger LOGGER = LoggerFactory.getLogger(StartFuzzersTask.class);
 
-  private final List<HttpFuzzerPanel> selectedPanels;
+  private final List<FuzzerController> selectedPanels;
   private int successCount = 0;
   private int errorCount = 0;
   private int skippedCount = 0;
 
-  public StartFuzzersTask(Component parent, List<HttpFuzzerPanel> selectedPanels) {
+  public StartFuzzersTask(Component parent, List<FuzzerController> selectedPanels) {
     super(parent, "Starting Fuzzers", selectedPanels.size());
     this.selectedPanels = selectedPanels;
   }
@@ -44,13 +44,13 @@ public class StartFuzzersTask extends ProgressDialogWorker {
         break;
       }
 
-      HttpFuzzerPanel panel = selectedPanels.get(i);
+      FuzzerController panel = selectedPanels.get(i);
       String fuzzerName = panel.getIdentifier();
 
       try {
         FuzzerState currentState = panel.getFuzzerState();
         if (currentState == FuzzerState.IDLE || currentState == FuzzerState.PAUSED) {
-          panel.startFuzzer().get();
+          panel.start().get();
           successCount++;
           LOGGER.debug("Started fuzzer: {}", fuzzerName);
         } else {

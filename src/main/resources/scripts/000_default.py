@@ -34,7 +34,7 @@ def handle_response(req):
 
 def get_marker_count():
     """Count payload positions (%s) in current template."""
-    template_req = utils.get_current_template()
+    template_req = fuzz.template
     if template_req:
         return template_req.toString().count("%s")
     return 1  # Default: single position

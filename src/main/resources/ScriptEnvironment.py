@@ -1,19 +1,20 @@
 """MutaFuzz Python Scripting Environment - Pythonic API for HTTP fuzzing with Burp Suite."""
 
+import hashlib
 import random
 import re
 import string
 
-# Variables injected by Java PythonScriptExecutor at runtime:
+# Variables injected by Java PythonScriptRunner at runtime:
 # - burp_api: MontoyaApi instance
-# - handler: PythonScriptBridge instance
+# - handler: PythonScriptRunner instance
 # - wordlists: List of wordlists (access via payloads.wordlist(n))
 # - _java_raw_http_list: HttpRequestResponse list (RAW_HTTP_LIST mode)
 
 _should_stop = False
 
 
-class filter:
+class filter(object):
     """Response filter decorators. Stack decorators for complex logic.
 
     @filter.status([200])
@@ -108,7 +109,7 @@ class filter:
         return decorator
 
 
-class QueueBuilder:
+class _QueueBuilder(object):
     """Fluent builder for fuzzing requests. Chain methods then call .queue() or .send()."""
 
     def __init__(self, handler):
@@ -158,14 +159,7 @@ class QueueBuilder:
                 self._url, self._template, self._payloads, self._learn_group
             )
         elif self._payloads:
-            current_req = self._handler.getCurrentTemplateRequest()
-            if current_req:
-                template_str = current_req.toString()
-                self._handler.queueRawTemplate(
-                    None, template_str, self._payloads, self._learn_group
-                )
-            else:
-                self._handler.queuePayloads(self._payloads, self._learn_group)
+            self._handler.queuePayloads(self._payloads, self._learn_group)
         elif self._url:
             self._handler.queueUrl(self._url, self._learn_group)
         return self
@@ -194,93 +188,145 @@ class QueueBuilder:
             )
 
 
-class FuzzerAPI:
+class FuzzerAPI(object):
     """Main fuzzing API. Access via global 'fuzz' object."""
 
     def __init__(self, handler):
-        self.handler = handler
+        self._handler = handler
 
     def url(self, url):
         """Start building request with URL."""
-        return QueueBuilder(self.handler).url(url)
+        return _QueueBuilder(self._handler).url(url)
 
     def payloads(self, payloads):
         """Start building request with payloads."""
-        return QueueBuilder(self.handler).payloads(payloads)
+        return _QueueBuilder(self._handler).payloads(payloads)
 
     def raw_request(self, template):
         """Start building request with raw HTTP template."""
-        return QueueBuilder(self.handler).raw_request(template)
+        return _QueueBuilder(self._handler).raw_request(template)
 
     def http_request(self, request):
         """Start building request with HttpRequest object (full Montoya API control)."""
-        return QueueBuilder(self.handler).http_request(request)
+        return _QueueBuilder(self._handler).http_request(request)
 
     def current_template(self):
         """Start building request from template editor."""
-        return QueueBuilder(self.handler).current_template()
+        return _QueueBuilder(self._handler).current_template()
+
+    def http_request_from_url(self, url):
+        """Create HttpRequest from URL (customizable with .withHeader(), etc)."""
+        return self._handler.httpRequestFromUrl(url)
+
+    @property
+    def template(self):
+        """Get current HttpRequest from template editor."""
+        return self._handler.getCurrentTemplateRequest()
+
+    @property
+    def stopped(self):
+        """Check if script should stop."""
+        return _should_stop
 
     def done(self):
         """Signal no more tasks will be queued (call at end of queue_tasks())."""
-        self.handler.done()
+        self._handler.done()
 
 
 fuzz = FuzzerAPI(handler)
 
 
-class encode:
-    """Encoding utilities."""
+class encode(object):
+    """Encoding utilities. Calls burp_api directly — no handler middleman."""
 
     @staticmethod
     def base64(s):
-        return handler.base64Encode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().base64Utils().encode(str(s)).toString()
 
     @staticmethod
     def url(s):
-        return handler.urlEncode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().urlUtils().encode(str(s))
 
     @staticmethod
     def html(s):
-        return handler.htmlEncode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().htmlUtils().encode(str(s))
 
     @staticmethod
     def json(s):
-        return handler.jsonEscape(s)
+        """JSON-escape a string (escapes quotes, backslashes, control chars)."""
+        if s is None:
+            return ""
+        return (str(s)
+                .replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f"))
 
 
-class decode:
-    """Decoding utilities."""
+class decode(object):
+    """Decoding utilities. Calls burp_api directly — no handler middleman."""
 
     @staticmethod
     def base64(s):
-        return handler.base64Decode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().base64Utils().decode(str(s)).toString()
 
     @staticmethod
     def url(s):
-        return handler.urlDecode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().urlUtils().decode(str(s))
 
     @staticmethod
     def html(s):
-        return handler.htmlDecode(s)
+        if s is None:
+            return ""
+        return burp_api.utilities().htmlUtils().decode(str(s))
 
     @staticmethod
     def json(s):
-        return handler.jsonUnescape(s)
+        """JSON-unescape a string."""
+        if s is None:
+            return ""
+        return (str(s)
+                .replace("\\f", "\f")
+                .replace("\\b", "\b")
+                .replace("\\t", "\t")
+                .replace("\\r", "\r")
+                .replace("\\n", "\n")
+                .replace('\\"', '"')
+                .replace("\\\\", "\\"))
 
 
-class hash:
-    """Hashing utilities."""
+class hash(object):
+    """Hashing utilities. Pure Python — no Java dependency."""
 
     @staticmethod
     def md5(s):
-        return handler.md5Hash(s)
+        if s is None:
+            return ""
+        data = s.encode("utf-8") if isinstance(s, unicode) else s
+        return hashlib.md5(data).hexdigest()
 
     @staticmethod
     def sha256(s):
-        return handler.sha256Hash(s)
+        if s is None:
+            return ""
+        data = s.encode("utf-8") if isinstance(s, unicode) else s
+        return hashlib.sha256(data).hexdigest()
 
 
-class session:
+class session(object):
     """Thread-safe state storage for multi-step workflows."""
 
     @staticmethod
@@ -304,7 +350,7 @@ class session:
         return handler.sessionContains(key)
 
 
-class table:
+class table(object):
     """Results table operations."""
 
     @staticmethod
@@ -312,17 +358,8 @@ class table:
         """Add request/response to results table."""
         handler.addToTable(req)
 
-    @staticmethod
-    def add_if(req, condition):
-        """Conditionally add to table. Condition is callable or boolean."""
-        if callable(condition):
-            if condition(req):
-                table.add(req)
-        elif condition:
-            table.add(req)
 
-
-class payloads:
+class payloads(object):
     """Access to configured wordlists."""
 
     @staticmethod
@@ -351,7 +388,7 @@ class payloads:
         return result
 
 
-class templates:
+class templates(object):
     """Access to raw HTTP templates (RAW_HTTP_LIST mode only)."""
 
     @staticmethod
@@ -377,7 +414,7 @@ class templates:
         return _java_raw_http_list if _java_raw_http_list is not None else []
 
 
-class utils:
+class utils(object):
     """General utilities."""
 
     @staticmethod
@@ -402,20 +439,11 @@ class utils:
         for i in range(0, len(items), size):
             yield items[i : i + size]
 
-    @staticmethod
-    def http_request_from_url(url):
-        """Create HttpRequest from URL (customizable with .withHeader(), etc)."""
-        return handler.httpRequestFromUrl(url)
 
-    @staticmethod
-    def get_current_template():
-        """Get current HttpRequest from template editor"""
-        return handler.getCurrentTemplateRequest()
-
-
-def shouldStop():
-    """Check if script should stop."""
-    return _should_stop
+# Default handle_response: add all responses to table.
+# User scripts override this by defining their own handle_response.
+def handle_response(req):
+    table.add(req)
 
 
 def onStop():
@@ -424,26 +452,10 @@ def onStop():
 
 
 def print_log(message):
-    """Print message to Burp Suite output (standard log).
-
-    Args:
-        message: Message to log (converted to string)
-
-    Example:
-        print_log("Fuzzing started with 100 payloads")
-    """
-
+    """Print message to Burp Suite output (standard log)."""
     burp_api.logging().logToOutput(str(message))
 
 
 def print_err(message):
-    """Print error message to Burp Suite error output.
-
-    Args:
-        message: Error message to log (converted to string)
-
-    Example:
-        print_err("Failed to parse response: invalid JSON")
-    """
-
+    """Print error message to Burp Suite error output."""
     burp_api.logging().logToError(str(message))

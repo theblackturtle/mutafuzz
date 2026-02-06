@@ -1,9 +1,10 @@
 package burp;
 
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.ui.editor.extension.EditorCreationContext;
 import burp.api.montoya.ui.editor.extension.ExtensionProvidedHttpRequestEditor;
 import burp.api.montoya.ui.editor.extension.HttpRequestEditorProvider;
-import com.theblackturtle.mutafuzz.dashboard.DashboardPanel;
+import com.theblackturtle.mutafuzz.ui.dashboard.DashboardPanel;
 
 /**
  * Registers the MutaFuzz editor tab in Burp Suite's HTTP message viewer. Enables fuzzer creation
@@ -13,9 +14,9 @@ public class FuzzerHttpRequestEditorProvider implements HttpRequestEditorProvide
 
   private final FuzzerExtensionProvidedHttpRequestEditor fuzzerExtensionProvidedHttpRequestEditor;
 
-  public FuzzerHttpRequestEditorProvider(DashboardPanel dashboard) {
+  public FuzzerHttpRequestEditorProvider(DashboardPanel dashboard, MontoyaApi api) {
     this.fuzzerExtensionProvidedHttpRequestEditor =
-        new FuzzerExtensionProvidedHttpRequestEditor(dashboard);
+        new FuzzerExtensionProvidedHttpRequestEditor(dashboard, api);
   }
 
   @Override

@@ -1,10 +1,11 @@
 package burp;
 
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.ui.Selection;
 import burp.api.montoya.ui.editor.extension.ExtensionProvidedHttpRequestEditor;
-import com.theblackturtle.mutafuzz.dashboard.DashboardPanel;
+import com.theblackturtle.mutafuzz.ui.dashboard.DashboardPanel;
 import java.awt.Component;
 import javax.swing.JButton;
 import org.jdesktop.swingx.JXPanel;
@@ -18,11 +19,13 @@ import org.jdesktop.swingx.VerticalLayout;
 public class FuzzerExtensionProvidedHttpRequestEditor
     implements ExtensionProvidedHttpRequestEditor {
   private final DashboardPanel dashboard;
+  private final MontoyaApi api;
   private JXPanel container;
   private HttpRequestResponse requestResponse;
 
-  public FuzzerExtensionProvidedHttpRequestEditor(DashboardPanel dashboard) {
+  public FuzzerExtensionProvidedHttpRequestEditor(DashboardPanel dashboard, MontoyaApi api) {
     this.dashboard = dashboard;
+    this.api = api;
     this.createUIComponents();
   }
 
@@ -75,7 +78,7 @@ public class FuzzerExtensionProvidedHttpRequestEditor
     try {
       dashboard.createFuzzerFromBurp(httpRequest, true);
     } catch (Exception e) {
-      BurpExtender.MONTOYA_API.logging().logToOutput("Error creating fuzzer: " + e.getMessage());
+      api.logging().logToOutput("Error creating fuzzer: " + e.getMessage());
     }
   }
 

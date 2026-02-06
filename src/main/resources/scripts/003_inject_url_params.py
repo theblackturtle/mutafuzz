@@ -32,15 +32,3 @@ def queue_tasks():
             pass
 
     fuzz.done()
-
-
-# Response Handler - Uncomment filters as needed
-# @filter.contains("admin", "panel")
-# @filter.interesting()
-# @filter.length_range(min=1000, max=5000)
-# @filter.matches(r"error|warning", ignore_case=True)
-# @filter.status([200, 201, 202])
-# @filter.status_not([404, 500])
-def handle_response(req):
-    """Add response to request table."""
-    table.add(req)

@@ -6,7 +6,7 @@ import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.ui.contextmenu.MessageEditorHttpRequestResponse;
 import burp.api.montoya.ui.hotkey.HotKeyEvent;
 import burp.api.montoya.ui.hotkey.HotKeyHandler;
-import com.theblackturtle.mutafuzz.dashboard.DashboardPanel;
+import com.theblackturtle.mutafuzz.ui.dashboard.DashboardPanel;
 import java.util.Optional;
 
 /**

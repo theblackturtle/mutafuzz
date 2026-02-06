@@ -1,5 +1,6 @@
 package burp;
 
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.Range;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
@@ -7,9 +8,9 @@ import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
 import burp.api.montoya.ui.contextmenu.InvocationType;
 import burp.api.montoya.ui.contextmenu.MessageEditorHttpRequestResponse;
-import com.theblackturtle.mutafuzz.dashboard.DashboardPanel;
-import com.theblackturtle.mutafuzz.httpfuzzer.ui.FuzzerOptions;
-import com.theblackturtle.mutafuzz.httpfuzzer.ui.RequestTemplateMode;
+import com.theblackturtle.mutafuzz.core.options.FuzzerOptions;
+import com.theblackturtle.mutafuzz.core.options.RequestTemplateMode;
+import com.theblackturtle.mutafuzz.ui.dashboard.DashboardPanel;
 import java.awt.Component;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +24,11 @@ import javax.swing.JMenuItem;
 public class FuzzerContextMenuItemsProvider implements ContextMenuItemsProvider {
 
   private final DashboardPanel dashboard;
+  private final MontoyaApi api;
 
-  public FuzzerContextMenuItemsProvider(DashboardPanel dashboard) {
+  public FuzzerContextMenuItemsProvider(DashboardPanel dashboard, MontoyaApi api) {
     this.dashboard = dashboard;
+    this.api = api;
   }
 
   @Override
@@ -92,13 +95,11 @@ public class FuzzerContextMenuItemsProvider implements ContextMenuItemsProvider 
     }
 
     if (reqResps.isEmpty()) {
-      BurpExtender.MONTOYA_API.logging().logToError("No requests selected");
+      api.logging().logToError("No requests selected");
       return;
     }
 
-    BurpExtender.MONTOYA_API
-        .logging()
-        .logToOutput("Sending " + reqResps.size() + " request/response(s) to MutaFuzz");
+    api.logging().logToOutput("Sending " + reqResps.size() + " request/response(s) to MutaFuzz");
 
     // Configure fuzzer options for raw HTTP list mode
     FuzzerOptions options = new FuzzerOptions();

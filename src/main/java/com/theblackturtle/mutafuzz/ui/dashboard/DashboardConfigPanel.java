@@ -3,22 +3,21 @@ package com.theblackturtle.mutafuzz.ui.dashboard;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import com.theblackturtle.mutafuzz.util.preferences.PreferenceManager;
+import com.theblackturtle.mutafuzz.util.script.ResourceScriptLoader;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.border.Border;
-import javax.swing.border.LineBorder;
 import org.jdesktop.swingx.JXPanel;
 import org.jdesktop.swingx.JXTextField;
 import org.slf4j.Logger;
@@ -48,22 +47,13 @@ public class DashboardConfigPanel extends JXPanel {
   private JComboBox<String> loggerLevelComboBox;
   private JFileChooser fileChooser;
 
-  // Borders for validation feedback
-  private final Border defaultBorder;
-  private final Border errorBorder = new LineBorder(Color.RED, 1);
-
   public DashboardConfigPanel(PreferenceManager preferenceManager) {
     super(new BorderLayout());
     this.preferenceManager = preferenceManager;
 
-    // Initialize borders for validation feedback
-    JXTextField tempField = new JXTextField();
-    defaultBorder = tempField.getBorder();
-
     initializeFileChooser();
     buildUI();
     loadPreferences();
-    setupActions();
 
     LOGGER.debug("DashboardConfigPanel initialized");
   }
@@ -80,6 +70,7 @@ public class DashboardConfigPanel extends JXPanel {
     addDirectoryRow(inputPanel, "Default Wordlist Dir", defaultInputDirTextField, 0);
     addDirectoryRow(inputPanel, "Scripts Dir", scriptsDirTextField, 1);
     addLoggerLevelRow(inputPanel, 2);
+    addButtonRow(inputPanel, 3);
 
     add(inputPanel, BorderLayout.NORTH);
   }
@@ -87,16 +78,6 @@ public class DashboardConfigPanel extends JXPanel {
   private JXTextField createTextField(String placeholderText) {
     JXTextField textField = new JXTextField(placeholderText);
     textField.setEditable(true);
-    textField.addFocusListener(
-        new FocusAdapter() {
-          @Override
-          public void focusLost(FocusEvent e) {
-            // Only validate if not moving to Browse button for this field
-            if (!e.isTemporary()) {
-              DashboardConfigPanel.this.validateAndSavePath(textField);
-            }
-          }
-        });
     return textField;
   }
 
@@ -116,6 +97,24 @@ public class DashboardConfigPanel extends JXPanel {
 
     panel.add(loggerLevelLabel, createGBC(0, row, 1, 0.0, 0.0));
     panel.add(loggerLevelComboBox, createGBC(1, row, 1, 1.0, 0.0));
+  }
+
+  private void addButtonRow(JXPanel panel, int row) {
+    JButton saveButton = new JButton("Save");
+    saveButton.addActionListener(e -> saveAll());
+
+    JButton copyDefaultsButton = new JButton("Copy Defaults");
+    copyDefaultsButton.setToolTipText("Copy bundled Python scripts to the Scripts Dir");
+    copyDefaultsButton.addActionListener(e -> handleCopyDefaults());
+
+    JXPanel buttonPanel = new JXPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 4, 0));
+    buttonPanel.add(saveButton);
+    buttonPanel.add(copyDefaultsButton);
+
+    GridBagConstraints gbc = createGBC(1, row, 1, 0.0, 0.0);
+    gbc.fill = GridBagConstraints.NONE;
+    gbc.anchor = GridBagConstraints.WEST;
+    panel.add(buttonPanel, gbc);
   }
 
   private static GridBagConstraints createGBC(
@@ -141,58 +140,6 @@ public class DashboardConfigPanel extends JXPanel {
 
   // Event handlers
 
-  private void setupActions() {
-    loggerLevelComboBox.addActionListener(
-        e -> {
-          String selectedLevel = (String) loggerLevelComboBox.getSelectedItem();
-          if (selectedLevel != null && !selectedLevel.trim().isEmpty()) {
-            handleLoggerLevelChange(selectedLevel);
-          }
-        });
-  }
-
-  private void validateAndSavePath(JXTextField textField) {
-    String path = textField.getText();
-
-    // Allow empty paths (user clearing the field)
-    if (path == null || path.trim().isEmpty()) {
-      clearValidationError(textField);
-      saveDirectoryPath(textField, "");
-      return;
-    }
-
-    path = path.trim();
-
-    // Validate path exists and is a directory
-    File dir = new File(path);
-    if (!dir.exists()) {
-      showValidationError(textField, "Path does not exist");
-      LOGGER.debug("Invalid path (does not exist): {}", path);
-      return;
-    }
-
-    if (!dir.isDirectory()) {
-      showValidationError(textField, "Path is not a directory");
-      LOGGER.debug("Invalid path (not a directory): {}", path);
-      return;
-    }
-
-    // Valid path - save it
-    clearValidationError(textField);
-    saveDirectoryPath(textField, path);
-    LOGGER.debug("Path validated and saved: {}", path);
-  }
-
-  private void showValidationError(JXTextField textField, String message) {
-    textField.setBorder(errorBorder);
-    textField.setToolTipText(message);
-  }
-
-  private void clearValidationError(JXTextField textField) {
-    textField.setBorder(defaultBorder);
-    textField.setToolTipText(null);
-  }
-
   private void handleBrowse(JXTextField textField) {
     SwingUtilities.invokeLater(
         () -> {
@@ -208,11 +155,7 @@ public class DashboardConfigPanel extends JXPanel {
             if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
               File selectedFile = fileChooser.getSelectedFile();
               String selectedPath = selectedFile.getAbsolutePath();
-
               textField.setText(selectedPath);
-              clearValidationError(textField);
-              saveDirectoryPath(textField, selectedPath);
-
               LOGGER.debug("Directory selected: {}", selectedPath);
             }
           } catch (Exception e) {
@@ -222,24 +165,78 @@ public class DashboardConfigPanel extends JXPanel {
         });
   }
 
-  private void handleLoggerLevelChange(String newLevel) {
-    try {
-      if (newLevel != null && !newLevel.trim().isEmpty()) {
-        preferenceManager.setPreference(PREF_LOGGER_LEVEL, newLevel);
-        applyLoggerLevel(newLevel);
-        LOGGER.debug("Logger level changed to: {}", newLevel);
-      }
-    } catch (Exception e) {
-      LOGGER.error("Error handling logger level change: {}", e.getMessage(), e);
-      showMessage("Error changing logger level: " + e.getMessage());
+  private void handleCopyDefaults() {
+    String scriptsDir = scriptsDirTextField.getText().trim();
+    if (scriptsDir.isEmpty()) {
+      showMessage("Set Scripts Dir first, then click Copy Defaults.");
+      return;
     }
+
+    File dir = new File(scriptsDir);
+    if (!dir.exists() || !dir.isDirectory()) {
+      showMessage("Scripts Dir does not exist or is not a directory.");
+      return;
+    }
+
+    Map<String, String> bundledScripts = ResourceScriptLoader.loadBundledScripts();
+    if (bundledScripts.isEmpty()) {
+      showMessage("No bundled scripts found.");
+      return;
+    }
+
+    int copied = 0;
+    for (Map.Entry<String, String> entry : bundledScripts.entrySet()) {
+      try {
+        File target = new File(dir, entry.getKey());
+        Files.writeString(target.toPath(), entry.getValue(), StandardCharsets.UTF_8);
+        copied++;
+      } catch (Exception e) {
+        LOGGER.error("Error copying script {}: {}", entry.getKey(), e.getMessage(), e);
+      }
+    }
+
+    showMessage("Copied " + copied + " default scripts to " + scriptsDir);
+  }
+
+  private void saveAll() {
+    String defaultDir = defaultInputDirTextField.getText().trim();
+    if (!defaultDir.isEmpty() && !validateDirectory(defaultDir)) {
+      return;
+    }
+    preferenceManager.setPreference(DashboardConfigConstants.getInputDirKey(0), defaultDir);
+
+    String scriptsDir = scriptsDirTextField.getText().trim();
+    if (!scriptsDir.isEmpty() && !validateDirectory(scriptsDir)) {
+      return;
+    }
+    preferenceManager.setPreference(DashboardConfigConstants.PREF_SCRIPTS_DIR, scriptsDir);
+
+    String selectedLevel = (String) loggerLevelComboBox.getSelectedItem();
+    if (selectedLevel != null) {
+      preferenceManager.setPreference(PREF_LOGGER_LEVEL, selectedLevel);
+      applyLoggerLevel(selectedLevel);
+    }
+
+    LOGGER.debug("All preferences saved");
+  }
+
+  private boolean validateDirectory(String path) {
+    File dir = new File(path);
+    if (!dir.exists()) {
+      showMessage("Path does not exist: " + path);
+      return false;
+    }
+    if (!dir.isDirectory()) {
+      showMessage("Path is not a directory: " + path);
+      return false;
+    }
+    return true;
   }
 
   // Preference and logger management
 
   private void loadPreferences() {
     try {
-      // Use first wordlist tab's directory as default
       String defaultDir =
           preferenceManager.getPreference(DashboardConfigConstants.getInputDirKey(0));
       String scriptsDir =
@@ -259,33 +256,6 @@ public class DashboardConfigPanel extends JXPanel {
     } catch (Exception e) {
       LOGGER.error("Error loading preferences: {}", e.getMessage(), e);
     }
-  }
-
-  private void saveDirectoryPath(JXTextField textField, String path) {
-    if (path == null || path.trim().isEmpty()) {
-      LOGGER.warn("Invalid path provided: {}", path);
-      showMessage("Invalid path: " + path);
-      return;
-    }
-
-    try {
-      String prefKey = getPreferenceKey(textField);
-      if (prefKey != null) {
-        preferenceManager.setPreference(prefKey, path);
-        LOGGER.debug("Saved preference: {} = {}", prefKey, path);
-      }
-    } catch (Exception e) {
-      LOGGER.error("Error saving directory path: {}", e.getMessage(), e);
-    }
-  }
-
-  private String getPreferenceKey(JXTextField textField) {
-    if (textField == defaultInputDirTextField) {
-      return DashboardConfigConstants.getInputDirKey(0);
-    } else if (textField == scriptsDirTextField) {
-      return DashboardConfigConstants.PREF_SCRIPTS_DIR;
-    }
-    return null;
   }
 
   private void applyLoggerLevel(String levelStr) {

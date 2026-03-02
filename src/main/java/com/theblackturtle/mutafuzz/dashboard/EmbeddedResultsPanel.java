@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -54,7 +55,8 @@ public class EmbeddedResultsPanel extends JPanel
 
   // State management
   private final Set<Integer> trackedFuzzerIds = ConcurrentHashMap.newKeySet();
-  private volatile List<HttpFuzzerPanel> currentControllers = new ArrayList<>();
+  private final CopyOnWriteArrayList<HttpFuzzerPanel> currentControllers =
+      new CopyOnWriteArrayList<>();
   private final AtomicBoolean isDisposed = new AtomicBoolean(false);
   private final AtomicLong selectionSequence = new AtomicLong(0);
 
@@ -319,9 +321,11 @@ public class EmbeddedResultsPanel extends JPanel
   }
 
   public void setCurrentControllers(List<HttpFuzzerPanel> controllers) {
-    this.currentControllers =
-        controllers != null ? new ArrayList<>(controllers) : new ArrayList<>();
-    LOGGER.debug("Updated current controllers: {} panels", this.currentControllers.size());
+    currentControllers.clear();
+    if (controllers != null) {
+      currentControllers.addAll(controllers);
+    }
+    LOGGER.debug("Updated current controllers: {} panels", currentControllers.size());
   }
 
   // Public API

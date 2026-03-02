@@ -15,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -427,16 +428,14 @@ public class DashboardTablePanel extends JPanel
             table.clearSelection();
 
             List<FuzzerTableRowData> allRows = model.getAllRows();
+            Map<Integer, Integer> fuzzerIdToModelRow = new HashMap<>(allRows.size());
+            for (int i = 0; i < allRows.size(); i++) {
+              fuzzerIdToModelRow.put(allRows.get(i).getFuzzerId(), i);
+            }
+
             for (HttpFuzzerPanel panel : finalPanels) {
-              int row = -1;
-              for (int i = 0; i < allRows.size(); i++) {
-                HttpFuzzerPanel tablePanel = fuzzerIdToController.get(allRows.get(i).getFuzzerId());
-                if (tablePanel != null && tablePanel == panel) {
-                  row = i;
-                  break;
-                }
-              }
-              if (row >= 0) {
+              Integer row = fuzzerIdToModelRow.get(panel.getFuzzerId());
+              if (row != null) {
                 int viewRow = table.convertRowIndexToView(row);
                 if (viewRow >= 0) {
                   table.addRowSelectionInterval(viewRow, viewRow);

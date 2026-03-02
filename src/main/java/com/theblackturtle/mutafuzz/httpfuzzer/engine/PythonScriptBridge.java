@@ -165,13 +165,6 @@ public class PythonScriptBridge {
   }
 
   /**
-   * @return The underlying fuzzer engine (alias for getEngine)
-   */
-  public HttpFuzzerEngine getHttpFuzzer() {
-    return httpFuzzerEngine;
-  }
-
-  /**
    * Create HttpRequest from URL using Burp's static factory method. Exposed to Python via
    * utils.http_request_from_url(url).
    *

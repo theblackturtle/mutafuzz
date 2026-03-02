@@ -446,31 +446,23 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             resetData();
 
             try {
+              FuzzerOptions currentOptions = fuzzerOptionsPanel.getFuzzerOptions();
+
               String currentScriptContent = scriptPanel.getScriptContent();
-              fuzzerOptions.setScriptContent(currentScriptContent);
+              currentOptions.setScriptContent(currentScriptContent);
 
               List<List<String>> wordlists = wordlistTabbedPane.getAllWordlists();
-              fuzzerOptions.setWordlists(wordlists);
+              currentOptions.setWordlists(wordlists);
 
               if (templateMode == RequestTemplateMode.RAW_HTTP_LIST) {
                 List<HttpRequestResponse> currentRawList =
                     requestTemplatePanel.getRawHttpRequestResponses();
-                fuzzerOptions.setRawHttpRequestResponses(currentRawList);
+                currentOptions.setRawHttpRequestResponses(currentRawList);
                 LOGGER.debug(
                     "Synchronized raw HTTP list: {} request/response pairs", currentRawList.size());
               }
 
-              FuzzerOptions currentOptions = fuzzerOptionsPanel.getFuzzerOptions();
-              fuzzerOptions.setThreadCount(currentOptions.getThreadCount());
-              fuzzerOptions.setTimeout(currentOptions.getTimeout());
-              fuzzerOptions.setRetriesOnIOError(currentOptions.getRetriesOnIOError());
-              fuzzerOptions.setQuarantineThreshold(currentOptions.getQuarantineThreshold());
-              fuzzerOptions.setForceCloseConnection(currentOptions.isForceCloseConnection());
-              fuzzerOptions.setFollowRedirects(currentOptions.isFollowRedirects());
-              fuzzerOptions.setMaxRequestsPerConnection(
-                  currentOptions.getMaxRequestsPerConnection());
-              fuzzerOptions.setMaxConnectionsPerHost(currentOptions.getMaxConnectionsPerHost());
-              fuzzerOptions.setRequesterEngine(currentOptions.getRequesterEngine().name());
+              fuzzerOptions.copyFrom(currentOptions);
 
               int totalPayloads = wordlists.stream().mapToInt(List::size).sum();
               LOGGER.debug(

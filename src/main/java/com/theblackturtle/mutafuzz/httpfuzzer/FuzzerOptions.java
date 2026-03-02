@@ -58,60 +58,37 @@ public class FuzzerOptions {
   }
 
   /**
-   * Copy constructor for defensive copying. Performs deep copy of collections to prevent external
-   * modification.
+   * Copies all mutable fields from the source into this instance.
    *
-   * @param other Source options to copy, or null to create default instance
+   * @param source Source options to copy from
    */
-  public FuzzerOptions(FuzzerOptions other) {
-    // TimeUnit is final and must be initialized
-    this.sendMessageDelayUnit = TimeUnit.MILLISECONDS;
+  public void copyFrom(FuzzerOptions source) {
+    this.threadCount = source.threadCount;
+    this.retriesOnIOError = source.retriesOnIOError;
+    this.sendMessageDelay = source.sendMessageDelay;
+    this.forceCloseConnection = source.forceCloseConnection;
+    this.followRedirects = source.followRedirects;
+    this.keepHostHeader = source.keepHostHeader;
+    this.maxRequestsPerConnection = source.maxRequestsPerConnection;
+    this.maxConnectionsPerHost = source.maxConnectionsPerHost;
+    this.timeout = source.timeout;
+    this.requesterEngine = source.requesterEngine;
+    this.quarantineThreshold = source.quarantineThreshold;
+    this.scriptContent = source.scriptContent;
 
-    if (other == null) {
-      this.threadCount = 10;
-      this.retriesOnIOError = 1;
-      this.sendMessageDelay = 0;
-      this.forceCloseConnection = false;
-      this.followRedirects = false;
-      this.keepHostHeader = false;
-      this.maxRequestsPerConnection = 100;
-      this.maxConnectionsPerHost = 50;
-      this.timeout = 7;
-      this.requesterEngine = RequesterEngine.DEFAULT;
-      this.quarantineThreshold = 0;
-      this.scriptContent = null;
-      this.wordlists = new ArrayList<>();
-      this.templateMode = RequestTemplateMode.REQUEST_EDITOR;
-      this.rawHttpRequestResponses = new ArrayList<>();
-    } else {
-      this.threadCount = other.threadCount;
-      this.retriesOnIOError = other.retriesOnIOError;
-      this.sendMessageDelay = other.sendMessageDelay;
-      this.forceCloseConnection = other.forceCloseConnection;
-      this.followRedirects = other.followRedirects;
-      this.keepHostHeader = other.keepHostHeader;
-      this.maxRequestsPerConnection = other.maxRequestsPerConnection;
-      this.maxConnectionsPerHost = other.maxConnectionsPerHost;
-      this.timeout = other.timeout;
-      this.requesterEngine = other.requesterEngine;
-      this.quarantineThreshold = other.quarantineThreshold;
-      this.scriptContent = other.scriptContent;
-
-      // Deep copy wordlists
-      this.wordlists = new ArrayList<>();
-      if (other.wordlists != null) {
-        for (List<String> wl : other.wordlists) {
-          this.wordlists.add(wl != null ? new ArrayList<>(wl) : new ArrayList<>());
-        }
+    this.wordlists = new ArrayList<>();
+    if (source.wordlists != null) {
+      for (List<String> wl : source.wordlists) {
+        this.wordlists.add(wl != null ? new ArrayList<>(wl) : new ArrayList<>());
       }
-
-      this.templateMode =
-          other.templateMode != null ? other.templateMode : RequestTemplateMode.REQUEST_EDITOR;
-      this.rawHttpRequestResponses =
-          other.rawHttpRequestResponses != null
-              ? new ArrayList<>(other.rawHttpRequestResponses)
-              : new ArrayList<>();
     }
+
+    this.templateMode =
+        source.templateMode != null ? source.templateMode : RequestTemplateMode.REQUEST_EDITOR;
+    this.rawHttpRequestResponses =
+        source.rawHttpRequestResponses != null
+            ? new ArrayList<>(source.rawHttpRequestResponses)
+            : new ArrayList<>();
   }
 
   /**

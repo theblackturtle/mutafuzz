@@ -65,63 +65,6 @@ public class FuzzerOptions {
     this.rawHttpRequestResponses = new ArrayList<>();
   }
 
-  /**
-   * Copy constructor for defensive copying. Performs deep copy of collections to prevent external
-   * modification.
-   *
-   * @param other Source options to copy, or null to create default instance
-   */
-  public FuzzerOptions(FuzzerOptions other) {
-    this.sendMessageDelayUnit = TimeUnit.MILLISECONDS;
-
-    if (other == null) {
-      this.threadCount = DEFAULT_THREAD_COUNT;
-      this.retriesOnIOError = DEFAULT_RETRIES_ON_IO_ERROR;
-      this.sendMessageDelay = DEFAULT_SEND_MESSAGE_DELAY;
-      this.forceCloseConnection = false;
-      this.followRedirects = false;
-      this.keepHostHeader = false;
-      this.maxRequestsPerConnection = DEFAULT_MAX_REQUESTS_PER_CONNECTION;
-      this.maxConnectionsPerHost = DEFAULT_MAX_CONNECTIONS_PER_HOST;
-      this.timeout = DEFAULT_TIMEOUT;
-      this.requesterEngine = RequesterEngine.DEFAULT;
-      this.quarantineThreshold = DEFAULT_QUARANTINE_THRESHOLD;
-      this.scriptContent = null;
-      this.wordlists = new ArrayList<>();
-      this.templateMode = RequestTemplateMode.REQUEST_EDITOR;
-      this.rawHttpRequestResponses = new ArrayList<>();
-      return;
-    }
-
-    this.threadCount = other.threadCount;
-    this.retriesOnIOError = other.retriesOnIOError;
-    this.sendMessageDelay = other.sendMessageDelay;
-    this.forceCloseConnection = other.forceCloseConnection;
-    this.followRedirects = other.followRedirects;
-    this.keepHostHeader = other.keepHostHeader;
-    this.maxRequestsPerConnection = other.maxRequestsPerConnection;
-    this.maxConnectionsPerHost = other.maxConnectionsPerHost;
-    this.timeout = other.timeout;
-    this.requesterEngine = other.requesterEngine;
-    this.quarantineThreshold = other.quarantineThreshold;
-    this.scriptContent = other.scriptContent;
-
-    // Deep copy wordlists
-    this.wordlists = new ArrayList<>();
-    if (other.wordlists != null) {
-      for (List<String> wl : other.wordlists) {
-        this.wordlists.add(wl != null ? new ArrayList<>(wl) : new ArrayList<>());
-      }
-    }
-
-    this.templateMode =
-        other.templateMode != null ? other.templateMode : RequestTemplateMode.REQUEST_EDITOR;
-    this.rawHttpRequestResponses =
-        other.rawHttpRequestResponses != null
-            ? new ArrayList<>(other.rawHttpRequestResponses)
-            : new ArrayList<>();
-  }
-
   /** Copies all mutable fields from source into this instance. */
   public void copyFrom(FuzzerOptions source) {
     if (source == null) return;
@@ -137,7 +80,8 @@ public class FuzzerOptions {
     this.requesterEngine = source.requesterEngine;
     this.quarantineThreshold = source.quarantineThreshold;
     this.scriptContent = source.scriptContent;
-    this.templateMode = source.templateMode;
+    this.templateMode =
+        source.templateMode != null ? source.templateMode : RequestTemplateMode.REQUEST_EDITOR;
 
     // Deep copy wordlists
     this.wordlists = new ArrayList<>();

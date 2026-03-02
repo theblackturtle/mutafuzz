@@ -446,20 +446,16 @@ public class EmbeddedResultsPanel extends JPanel
 
   @Override
   public void onResultAdded(int fuzzerId, RequestObject result, boolean interesting) {
-    // Defensive check: panel disposed
-    if (isDisposed.get()) {
-      return;
-    }
-
-    // Defensive check: fuzzer not tracked
-    if (currentSessions.stream().noneMatch(s -> s.getFuzzerId() == fuzzerId)) {
-      LOGGER.trace("Ignoring result from untracked fuzzer {}", fuzzerId);
-      return;
-    }
+    if (isDisposed.get()) return;
 
     SwingUtilities.invokeLater(
         () -> {
           if (isDisposed.get()) return;
+          // Check tracking on EDT where currentSessions is mutated — avoids TOCTOU race
+          if (currentSessions.stream().noneMatch(s -> s.getFuzzerId() == fuzzerId)) {
+            LOGGER.trace("Ignoring result from untracked fuzzer {}", fuzzerId);
+            return;
+          }
           if (requestTable != null && result != null) {
             RequestTableModel<RequestObject> tableModel = requestTable.getModel();
             if (tableModel != null) {

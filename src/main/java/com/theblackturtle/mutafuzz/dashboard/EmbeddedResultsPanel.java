@@ -19,8 +19,6 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -53,7 +51,6 @@ public class EmbeddedResultsPanel extends JPanel
   private Consumer<RequestObject> requestSelectionHandler;
 
   // State management
-  private final Set<Integer> trackedFuzzerIds = ConcurrentHashMap.newKeySet();
   private volatile List<HttpFuzzerPanel> currentControllers = new ArrayList<>();
   private final AtomicBoolean isDisposed = new AtomicBoolean(false);
   private final AtomicLong selectionSequence = new AtomicLong(0);
@@ -292,28 +289,6 @@ public class EmbeddedResultsPanel extends JPanel
   }
 
   // State management
-  public Set<Integer> getTrackedFuzzerIds() {
-    return trackedFuzzerIds;
-  }
-
-  public void addTrackedFuzzerId(int fuzzerId) {
-    trackedFuzzerIds.add(fuzzerId);
-    LOGGER.debug("Added tracked fuzzer ID: {}", fuzzerId);
-  }
-
-  public void clearTrackedFuzzerIds() {
-    trackedFuzzerIds.clear();
-    LOGGER.debug("Cleared all tracked fuzzer IDs");
-  }
-
-  public boolean hasTrackedFuzzerIds() {
-    return !trackedFuzzerIds.isEmpty();
-  }
-
-  public int getTrackedFuzzerIdCount() {
-    return trackedFuzzerIds.size();
-  }
-
   public List<HttpFuzzerPanel> getCurrentControllers() {
     return new ArrayList<>(currentControllers);
   }
@@ -398,9 +373,6 @@ public class EmbeddedResultsPanel extends JPanel
               }
             }
 
-            // STEP 2: Update tracked state
-            clearTrackedFuzzerIds();
-
             if (selectedControllers == null || selectedControllers.isEmpty()) {
               // No selection - show empty state
               setCurrentControllers(new ArrayList<>());
@@ -409,9 +381,8 @@ public class EmbeddedResultsPanel extends JPanel
               return;
             }
 
-            // STEP 3: Register listeners BEFORE loading data (minimize gap)
+            // STEP 2: Register listeners BEFORE loading data (minimize gap)
             setCurrentControllers(selectedControllers);
-            selectedControllers.forEach(panel -> addTrackedFuzzerId(panel.getFuzzerId()));
 
             for (HttpFuzzerPanel panel : selectedControllers) {
               if (panel != null) {
@@ -420,14 +391,14 @@ public class EmbeddedResultsPanel extends JPanel
               }
             }
 
-            // STEP 4: Clear table
+            // STEP 3: Clear table
             showResultsView();
             if (requestTable != null) {
               RequestTableModel<RequestObject> tableModel = requestTable.getModel();
               tableModel.clearData();
             }
 
-            // STEP 5: Load initial data (listeners already registered)
+            // STEP 4: Load initial data (listeners already registered)
             // Check sequence again before expensive operation
             if (sequence != selectionSequence.get()) {
               LOGGER.debug("Selection changed during setup, aborting load (seq: {})", sequence);
@@ -465,7 +436,7 @@ public class EmbeddedResultsPanel extends JPanel
     }
 
     // Defensive check: fuzzer not tracked
-    if (!trackedFuzzerIds.contains(fuzzerId)) {
+    if (currentControllers.stream().noneMatch(p -> p != null && p.getFuzzerId() == fuzzerId)) {
       LOGGER.trace("Ignoring result from untracked fuzzer {}", fuzzerId);
       return;
     }
@@ -495,9 +466,6 @@ public class EmbeddedResultsPanel extends JPanel
     }
 
     try {
-      // Remove from tracking
-      trackedFuzzerIds.remove(fuzzerId);
-
       // Find and remove panel from current controllers
       HttpFuzzerPanel panelToRemove = null;
       for (HttpFuzzerPanel panel : currentControllers) {
@@ -537,7 +505,6 @@ public class EmbeddedResultsPanel extends JPanel
 
       selectionCoordinator.removeSelectionListener(this);
 
-      trackedFuzzerIds.clear();
       currentControllers.clear();
 
       if (requestTable != null) {

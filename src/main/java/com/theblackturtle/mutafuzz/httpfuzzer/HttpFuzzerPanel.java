@@ -11,6 +11,7 @@ import com.theblackturtle.mutafuzz.httpfuzzer.engine.HttpFuzzerEngine;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
 import com.theblackturtle.mutafuzz.logtable.LogTablePanel;
+import com.theblackturtle.mutafuzz.logtable.action.ResendRequestAction;
 import com.theblackturtle.mutafuzz.util.PreferenceUtils;
 import com.theblackturtle.mutafuzz.widget.PrimaryButton;
 import java.awt.BorderLayout;
@@ -183,7 +184,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
             fuzzerId,
             identifier,
             BurpExtender.MONTOYA_API,
-            new BurpRequester(BurpExtender.MONTOYA_API),
+            new ResendRequestAction(new BurpRequester(BurpExtender.MONTOYA_API)),
             this);
 
     JPanel buttonPanel = createButtonPanel();

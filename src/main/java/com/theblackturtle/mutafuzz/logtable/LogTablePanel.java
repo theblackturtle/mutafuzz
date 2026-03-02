@@ -1,7 +1,6 @@
 package com.theblackturtle.mutafuzz.logtable;
 
 import burp.api.montoya.MontoyaApi;
-import com.theblackturtle.mutafuzz.httpclient.BurpRequester;
 import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
 import com.theblackturtle.mutafuzz.httpfuzzer.engine.RequestObject;
 import com.theblackturtle.mutafuzz.httpfuzzer.wildcardfilter.WildcardFilter;
@@ -48,7 +47,7 @@ public class LogTablePanel extends JPanel {
 
   // Dependencies for actions
   private final MontoyaApi api;
-  private final BurpRequester requester;
+  private final ResendRequestAction resendRequestAction;
   private final HttpFuzzerPanel fuzzerPanel;
 
   // Selection management
@@ -61,21 +60,21 @@ public class LogTablePanel extends JPanel {
    * @param fuzzerId Unique fuzzer ID
    * @param identifier Human-readable fuzzer name
    * @param api Burp Montoya API for target operations
-   * @param requester HTTP client for resending requests
+   * @param resendRequestAction Action for resending requests
    * @param fuzzerPanel Fuzzer panel for wildcard filter access
    */
   public LogTablePanel(
       int fuzzerId,
       String identifier,
       MontoyaApi api,
-      BurpRequester requester,
+      ResendRequestAction resendRequestAction,
       HttpFuzzerPanel fuzzerPanel) {
 
     if (api == null) {
       throw new IllegalArgumentException("MontoyaApi cannot be null");
     }
-    if (requester == null) {
-      throw new IllegalArgumentException("BurpRequester cannot be null");
+    if (resendRequestAction == null) {
+      throw new IllegalArgumentException("ResendRequestAction cannot be null");
     }
     if (fuzzerPanel == null) {
       throw new IllegalArgumentException("HttpFuzzerPanel cannot be null");
@@ -84,7 +83,7 @@ public class LogTablePanel extends JPanel {
     this.fuzzerId = fuzzerId;
     this.identifier = identifier;
     this.api = api;
-    this.requester = requester;
+    this.resendRequestAction = resendRequestAction;
     this.fuzzerPanel = fuzzerPanel;
 
     // Build UI
@@ -150,7 +149,7 @@ public class LogTablePanel extends JPanel {
     requestTable.addContextMenuAction(CopyUrlAction.getInstance());
     requestTable.addContextMenuAction(CopyResponseBodyAction.getInstance());
     requestTable.addContextMenuAction(new AddToTargetAction(api));
-    requestTable.addContextMenuAction(new ResendRequestAction(requester));
+    requestTable.addContextMenuAction(resendRequestAction);
     requestTable.addContextMenuAction(
         new IgnoreRequestsAction(fuzzerPanel.getWildcardFilter(), this::handleFilterChanged));
   }

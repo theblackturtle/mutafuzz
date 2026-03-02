@@ -7,6 +7,7 @@ import com.theblackturtle.mutafuzz.httpfuzzer.FuzzerOptions;
 import com.theblackturtle.mutafuzz.httpfuzzer.HttpFuzzerPanel;
 import com.theblackturtle.mutafuzz.httpfuzzer.RequestTemplateMode;
 import com.theblackturtle.mutafuzz.logtable.LogTablePanel;
+import com.theblackturtle.mutafuzz.logtable.action.ResendRequestAction;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
@@ -172,7 +173,7 @@ public class DashboardPanel extends JTabbedPane {
               fuzzerId,
               identifier,
               BurpExtender.MONTOYA_API,
-              new BurpRequester(BurpExtender.MONTOYA_API),
+              new ResendRequestAction(new BurpRequester(BurpExtender.MONTOYA_API)),
               panel);
       panel.setLogTablePanel(logTablePanel);
 

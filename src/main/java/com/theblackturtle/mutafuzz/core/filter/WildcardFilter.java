@@ -126,12 +126,4 @@ public class WildcardFilter {
     }
     learnPatterns.clear();
   }
-
-  /**
-   * Releases all resources held by this filter. Should be called when the filter is no longer
-   * needed to prevent memory leaks.
-   */
-  public void cleanUp() {
-    clear();
-  }
 }

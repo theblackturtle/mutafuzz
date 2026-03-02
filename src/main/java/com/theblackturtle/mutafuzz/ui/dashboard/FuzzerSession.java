@@ -90,6 +90,6 @@ public class FuzzerSession {
     if (logTablePanel != null) {
       logTablePanel.dispose();
     }
-    controller.getWildcardFilter().cleanUp();
+    controller.getWildcardFilter().clear();
   }
 }

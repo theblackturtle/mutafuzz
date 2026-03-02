@@ -355,32 +355,13 @@ public class HttpFuzzerFrame extends JFrame implements FuzzerModelListener {
         e -> {
           if (!isDisposed.get()) {
             // Sync UI options to controller's FuzzerOptions
-            FuzzerOptions opts = controller.getFuzzerOptions();
-
-            String currentScriptContent = getScriptContent();
-            opts.setScriptContent(currentScriptContent);
-
-            List<List<String>> wordlists = getAllWordlists();
-            opts.setWordlists(wordlists);
-
-            // Sync options from FuzzerOptionsPanel
             FuzzerOptions panelOptions = getFuzzerOptions();
-            opts.setThreadCount(panelOptions.getThreadCount());
-            opts.setTimeout(panelOptions.getTimeout());
-            opts.setRetriesOnIOError(panelOptions.getRetriesOnIOError());
-            opts.setQuarantineThreshold(panelOptions.getQuarantineThreshold());
-            opts.setForceCloseConnection(panelOptions.isForceCloseConnection());
-            opts.setFollowRedirects(panelOptions.isFollowRedirects());
-            opts.setMaxRequestsPerConnection(panelOptions.getMaxRequestsPerConnection());
-            opts.setMaxConnectionsPerHost(panelOptions.getMaxConnectionsPerHost());
-            opts.setRequesterEngine(panelOptions.getRequesterEngine().name());
-
-            // Sync RAW_HTTP_LIST mode data if applicable
-            RequestTemplateMode templateMode = opts.getTemplateMode();
-            if (templateMode == RequestTemplateMode.RAW_HTTP_LIST) {
-              List<HttpRequestResponse> currentRawList = getRawHttpRequestResponses();
-              opts.setRawHttpRequestResponses(currentRawList);
+            panelOptions.setScriptContent(getScriptContent());
+            panelOptions.setWordlists(getAllWordlists());
+            if (panelOptions.getTemplateMode() == RequestTemplateMode.RAW_HTTP_LIST) {
+              panelOptions.setRawHttpRequestResponses(getRawHttpRequestResponses());
             }
+            controller.getFuzzerOptions().copyFrom(panelOptions);
 
             // Clear results and start with user-edited request
             logTablePanel.clearRequests();

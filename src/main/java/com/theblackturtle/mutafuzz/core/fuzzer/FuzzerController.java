@@ -4,7 +4,6 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.theblackturtle.mutafuzz.core.engine.FuzzEngine;
 import com.theblackturtle.mutafuzz.core.engine.FuzzerState;
-import com.theblackturtle.mutafuzz.core.engine.RequestObject;
 import com.theblackturtle.mutafuzz.core.event.FuzzerModelListener;
 import com.theblackturtle.mutafuzz.core.filter.WildcardFilter;
 import com.theblackturtle.mutafuzz.core.options.FuzzerOptions;
@@ -13,7 +12,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,12 +19,11 @@ import org.slf4j.LoggerFactory;
  * Controls fuzzer lifecycle and coordinates between FuzzEngine and listeners. Pure business logic
  * with no UI dependencies. UI components register as FuzzerModelListener to receive events.
  */
-public class FuzzerController implements FuzzerModelListener {
+public class FuzzerController {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FuzzerController.class);
 
   private final AtomicBoolean isDisposed = new AtomicBoolean(false);
-  private final AtomicLong resultCount = new AtomicLong(0);
   private final int fuzzerId;
   private final String identifier;
   private HttpRequest templateRequest;
@@ -63,8 +60,6 @@ public class FuzzerController implements FuzzerModelListener {
     this.wildcardFilter = wildcardFilter;
     this.api = api;
 
-    modelListeners.add(this);
-
     LOGGER.debug(
         "Created FuzzerController for fuzzer ID: {}, identifier: {}", fuzzerId, identifier);
   }
@@ -83,8 +78,6 @@ public class FuzzerController implements FuzzerModelListener {
     return CompletableFuture.runAsync(
         () -> {
           try {
-            resultCount.set(0);
-
             fuzzerEngine = createFuzzerEngine();
             if (fuzzerEngine == null) {
               LOGGER.error("CRITICAL: Failed to create FuzzEngine for fuzzer: {}", identifier);
@@ -223,31 +216,6 @@ public class FuzzerController implements FuzzerModelListener {
     }
   }
 
-  // ========== FuzzerModelListener Implementation ==========
-
-  @Override
-  public void onStateChanged(int fuzzerId, FuzzerState newState) {
-    if (isDisposed.get()) return;
-    LOGGER.debug("Controller {} received state change: {}", fuzzerId, newState);
-  }
-
-  @Override
-  public void onResultAdded(int fuzzerId, RequestObject result, boolean interesting) {
-    if (isDisposed.get()) return;
-    resultCount.incrementAndGet();
-  }
-
-  @Override
-  public void onCountersUpdated(
-      int fuzzerId, long completedCount, long totalCount, long errorCount) {
-    if (isDisposed.get()) return;
-  }
-
-  @Override
-  public void onFuzzerDisposed(int fuzzerId) {
-    // No-op - controller handles its own disposal
-  }
-
   // ========== Accessors ==========
 
   public int getFuzzerId() {
@@ -263,7 +231,7 @@ public class FuzzerController implements FuzzerModelListener {
   }
 
   public int getResultCount() {
-    return (int) resultCount.get();
+    return fuzzerEngine != null ? (int) fuzzerEngine.getProgressCount() : 0;
   }
 
   public long getErrorCount() {
@@ -317,7 +285,6 @@ public class FuzzerController implements FuzzerModelListener {
 
     try {
       if (fuzzerEngine != null) {
-        modelListeners.remove(this);
         fuzzerEngine.stop();
       }
 

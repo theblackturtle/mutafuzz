@@ -5,15 +5,14 @@ import com.theblackturtle.mutafuzz.core.engine.FuzzerState;
 import com.theblackturtle.mutafuzz.core.engine.RequestObject;
 import com.theblackturtle.mutafuzz.core.event.FuzzerModelListener;
 import com.theblackturtle.mutafuzz.core.filter.WildcardFilter;
-import com.theblackturtle.mutafuzz.core.http.BurpHttpClient;
 import com.theblackturtle.mutafuzz.ui.logtable.action.AddToTargetAction;
 import com.theblackturtle.mutafuzz.ui.logtable.action.CopyResponseBodyAction;
 import com.theblackturtle.mutafuzz.ui.logtable.action.CopyUrlAction;
 import com.theblackturtle.mutafuzz.ui.logtable.action.IgnoreRequestsAction;
-import com.theblackturtle.mutafuzz.ui.logtable.action.ResendRequestAction;
 import com.theblackturtle.mutafuzz.util.preferences.PreferenceManager;
 import com.theblackturtle.swing.requesttable.RequestTableModel;
 import com.theblackturtle.swing.requesttable.ui.RequestTable;
+import com.theblackturtle.swing.requesttable.ui.RequestTableAction;
 import java.awt.BorderLayout;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -49,7 +48,7 @@ public class LogTablePanel extends JPanel implements FuzzerModelListener {
 
   // Dependencies for actions
   private final MontoyaApi api;
-  private final BurpHttpClient requester;
+  private final RequestTableAction<RequestObject> resendAction;
   private final WildcardFilter wildcardFilter;
 
   // Selection management
@@ -62,7 +61,7 @@ public class LogTablePanel extends JPanel implements FuzzerModelListener {
    * @param fuzzerId Unique fuzzer ID
    * @param identifier Human-readable fuzzer name
    * @param api Burp Montoya API for target operations
-   * @param requester HTTP client for resending requests
+   * @param resendAction Action for resending requests
    * @param wildcardFilter Filter for ignoring similar responses
    * @param preferenceManager Preference manager for column state persistence
    */
@@ -70,15 +69,15 @@ public class LogTablePanel extends JPanel implements FuzzerModelListener {
       int fuzzerId,
       String identifier,
       MontoyaApi api,
-      BurpHttpClient requester,
+      RequestTableAction<RequestObject> resendAction,
       WildcardFilter wildcardFilter,
       PreferenceManager preferenceManager) {
 
     if (api == null) {
       throw new IllegalArgumentException("MontoyaApi cannot be null");
     }
-    if (requester == null) {
-      throw new IllegalArgumentException("BurpHttpClient cannot be null");
+    if (resendAction == null) {
+      throw new IllegalArgumentException("resendAction cannot be null");
     }
     if (wildcardFilter == null) {
       throw new IllegalArgumentException("WildcardFilter cannot be null");
@@ -90,7 +89,7 @@ public class LogTablePanel extends JPanel implements FuzzerModelListener {
     this.fuzzerId = fuzzerId;
     this.identifier = identifier;
     this.api = api;
-    this.requester = requester;
+    this.resendAction = resendAction;
     this.wildcardFilter = wildcardFilter;
 
     // Build UI
@@ -156,7 +155,7 @@ public class LogTablePanel extends JPanel implements FuzzerModelListener {
     requestTable.addContextMenuAction(CopyUrlAction.getInstance());
     requestTable.addContextMenuAction(CopyResponseBodyAction.getInstance());
     requestTable.addContextMenuAction(new AddToTargetAction(api));
-    requestTable.addContextMenuAction(new ResendRequestAction(requester));
+    requestTable.addContextMenuAction(resendAction);
     requestTable.addContextMenuAction(
         new IgnoreRequestsAction(wildcardFilter, this::handleFilterChanged));
   }

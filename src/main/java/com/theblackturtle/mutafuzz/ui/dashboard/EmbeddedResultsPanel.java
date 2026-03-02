@@ -18,8 +18,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -52,8 +51,7 @@ public class EmbeddedResultsPanel extends JPanel
   private Consumer<RequestObject> requestSelectionHandler;
 
   // State management
-  private final Set<Integer> trackedFuzzerIds = ConcurrentHashMap.newKeySet();
-  private volatile List<FuzzerSession> currentSessions = new ArrayList<>();
+  private final CopyOnWriteArrayList<FuzzerSession> currentSessions = new CopyOnWriteArrayList<>();
   private final AtomicBoolean isDisposed = new AtomicBoolean(false);
   private final AtomicLong selectionSequence = new AtomicLong(0);
 
@@ -304,35 +302,16 @@ public class EmbeddedResultsPanel extends JPanel
   }
 
   // State management
-  public Set<Integer> getTrackedFuzzerIds() {
-    return trackedFuzzerIds;
-  }
-
-  public void addTrackedFuzzerId(int fuzzerId) {
-    trackedFuzzerIds.add(fuzzerId);
-    LOGGER.debug("Added tracked fuzzer ID: {}", fuzzerId);
-  }
-
-  public void clearTrackedFuzzerIds() {
-    trackedFuzzerIds.clear();
-    LOGGER.debug("Cleared all tracked fuzzer IDs");
-  }
-
-  public boolean hasTrackedFuzzerIds() {
-    return !trackedFuzzerIds.isEmpty();
-  }
-
-  public int getTrackedFuzzerIdCount() {
-    return trackedFuzzerIds.size();
-  }
-
   public List<FuzzerSession> getCurrentSessions() {
     return new ArrayList<>(currentSessions);
   }
 
   public void setCurrentSessions(List<FuzzerSession> sessions) {
-    this.currentSessions = sessions != null ? new ArrayList<>(sessions) : new ArrayList<>();
-    LOGGER.debug("Updated current sessions: {} sessions", this.currentSessions.size());
+    currentSessions.clear();
+    if (sessions != null) {
+      currentSessions.addAll(sessions);
+    }
+    LOGGER.debug("Updated current sessions: {} sessions", currentSessions.size());
   }
 
   // Public API
@@ -410,8 +389,6 @@ public class EmbeddedResultsPanel extends JPanel
             }
 
             // STEP 2: Update tracked state
-            clearTrackedFuzzerIds();
-
             if (selectedSessions == null || selectedSessions.isEmpty()) {
               // No selection - show empty state
               setCurrentSessions(new ArrayList<>());
@@ -422,7 +399,6 @@ public class EmbeddedResultsPanel extends JPanel
 
             // STEP 3: Register listeners BEFORE loading data (minimize gap)
             setCurrentSessions(selectedSessions);
-            selectedSessions.forEach(session -> addTrackedFuzzerId(session.getFuzzerId()));
 
             for (FuzzerSession session : selectedSessions) {
               if (session != null) {
@@ -476,7 +452,7 @@ public class EmbeddedResultsPanel extends JPanel
     }
 
     // Defensive check: fuzzer not tracked
-    if (!trackedFuzzerIds.contains(fuzzerId)) {
+    if (currentSessions.stream().noneMatch(s -> s.getFuzzerId() == fuzzerId)) {
       LOGGER.trace("Ignoring result from untracked fuzzer {}", fuzzerId);
       return;
     }
@@ -509,9 +485,6 @@ public class EmbeddedResultsPanel extends JPanel
     }
 
     try {
-      // Remove from tracking
-      trackedFuzzerIds.remove(fuzzerId);
-
       // Find and remove session from current sessions
       FuzzerSession sessionToRemove = null;
       for (FuzzerSession session : currentSessions) {
@@ -551,7 +524,6 @@ public class EmbeddedResultsPanel extends JPanel
 
       selectionCoordinator.removeSelectionListener(this);
 
-      trackedFuzzerIds.clear();
       currentSessions.clear();
 
       if (requestTable != null) {

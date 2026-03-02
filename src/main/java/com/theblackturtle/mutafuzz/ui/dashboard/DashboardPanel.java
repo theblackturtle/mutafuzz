@@ -10,6 +10,7 @@ import com.theblackturtle.mutafuzz.core.options.FuzzerOptions;
 import com.theblackturtle.mutafuzz.core.options.RequestTemplateMode;
 import com.theblackturtle.mutafuzz.ui.fuzzer.HttpFuzzerFrame;
 import com.theblackturtle.mutafuzz.ui.logtable.LogTablePanel;
+import com.theblackturtle.mutafuzz.ui.logtable.action.ResendRequestAction;
 import com.theblackturtle.mutafuzz.util.preferences.PreferenceManager;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -193,9 +194,10 @@ public class DashboardPanel extends JTabbedPane {
       // 1. Create dependencies
       WildcardFilter wildcardFilter = new WildcardFilter();
       BurpHttpClient requester = new BurpHttpClient(api, redirectMode, options.getTimeout());
+      ResendRequestAction resendAction = new ResendRequestAction(requester);
       LogTablePanel logTablePanel =
           new LogTablePanel(
-              fuzzerId, identifier, api, requester, wildcardFilter, preferenceManager);
+              fuzzerId, identifier, api, resendAction, wildcardFilter, preferenceManager);
 
       // 2. Create controller with 6-param constructor (no logTablePanel)
       FuzzerController controller =

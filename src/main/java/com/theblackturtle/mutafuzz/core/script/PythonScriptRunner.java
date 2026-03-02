@@ -380,11 +380,6 @@ public class PythonScriptRunner implements AutoCloseable, Runnable {
     return engine;
   }
 
-  /** Alias for getEngine(). */
-  public FuzzEngine getHttpFuzzer() {
-    return engine;
-  }
-
   /** Sleep utility. */
   public void sleep(int ms) {
     try {

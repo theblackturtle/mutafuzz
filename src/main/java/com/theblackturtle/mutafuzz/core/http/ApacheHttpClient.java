@@ -218,7 +218,8 @@ public class ApacheHttpClient extends HttpClientBase {
     }
 
     for (HttpHeader header : httpRequest.headers()) {
-      if (header.name().toLowerCase(Locale.ROOT).equals("content-length")) {
+      String headerName = header.name().toLowerCase(Locale.ROOT);
+      if (headerName.equals("content-length") || headerName.equals("accept-encoding")) {
         continue;
       }
       requestBuilder.addHeader(header.name(), header.value());

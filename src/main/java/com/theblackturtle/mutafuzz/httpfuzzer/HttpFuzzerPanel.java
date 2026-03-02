@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  * Main MutaFuzz window that coordinates fuzzing engine, displays configuration, and shows results.
  * Supports request templates, payload inputs, Python scripting, and real-time progress tracking.
  */
-public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
+public class HttpFuzzerPanel extends JFrame {
 
   private static final long serialVersionUID = 5875412065804005995L;
   private static final Logger LOGGER = LoggerFactory.getLogger(HttpFuzzerPanel.class);
@@ -92,6 +92,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
   private LogTablePanel logTablePanel;
 
   private final List<FuzzerModelListener> modelListeners = new CopyOnWriteArrayList<>();
+  private final FuzzerModelListener selfListener;
   private WindowAdapter windowClosingListener;
 
   /**
@@ -117,8 +118,45 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
     this.fuzzerEngine = null;
     this.wildcardFilter = new WildcardFilter();
 
-    // Add self to modelListeners so engine can notify us
-    modelListeners.add(this);
+    // Create listener for engine notifications to update UI
+    this.selfListener =
+        new FuzzerModelListener() {
+          @Override
+          public void onStateChanged(int id, FuzzerState newState) {
+            if (isDisposed.get()) return;
+            SwingUtilities.invokeLater(
+                () -> {
+                  if (isDisposed.get() || statusPanel == null) return;
+                  statusPanel.setState(newState);
+                  updateButtonStates(newState);
+                });
+          }
+
+          @Override
+          public void onResultAdded(int id, RequestObject result, boolean interesting) {
+            if (isDisposed.get()) return;
+            if (logTablePanel != null) {
+              logTablePanel.addRequest(result);
+            }
+          }
+
+          @Override
+          public void onCountersUpdated(
+              int id, long completedCount, long totalCount, long errorCount) {
+            if (isDisposed.get()) return;
+            SwingUtilities.invokeLater(
+                () -> {
+                  if (isDisposed.get() || statusPanel == null) return;
+                  statusPanel.updateCounters(completedCount, totalCount, errorCount);
+                });
+          }
+
+          @Override
+          public void onFuzzerDisposed(int id) {
+            // No-op
+          }
+        };
+    modelListeners.add(selfListener);
 
     // Setup window
     this.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -752,68 +790,6 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
         });
   }
 
-  @Override
-  public void onStateChanged(int fuzzerId, FuzzerState newState) {
-    if (isDisposed.get()) {
-      LOGGER.debug("Ignoring state change for disposed panel {}: {}", fuzzerId, newState);
-      return;
-    }
-
-    LOGGER.debug("Panel {} received state change: {}", fuzzerId, newState);
-
-    SwingUtilities.invokeLater(
-        () -> {
-          if (isDisposed.get() || statusPanel == null) {
-            return;
-          }
-          statusPanel.setState(newState);
-          updateButtonStates(newState);
-        });
-  }
-
-  @Override
-  public void onResultAdded(int fuzzerId, RequestObject result, boolean interesting) {
-    if (isDisposed.get()) {
-      LOGGER.debug("Ignoring result for disposed panel {}", fuzzerId);
-      return;
-    }
-
-    LOGGER.debug("Panel {} received result: interesting={}", fuzzerId, interesting);
-
-    if (logTablePanel != null) {
-      logTablePanel.addRequest(result);
-    }
-  }
-
-  @Override
-  public void onCountersUpdated(
-      int fuzzerId, long completedCount, long totalCount, long errorCount) {
-    if (isDisposed.get()) {
-      LOGGER.debug("Ignoring counter update for disposed panel {}", fuzzerId);
-      return;
-    }
-
-    LOGGER.debug(
-        "Panel {} received counter update: {}/{} (errors: {})",
-        fuzzerId,
-        completedCount,
-        totalCount,
-        errorCount);
-
-    SwingUtilities.invokeLater(
-        () -> {
-          if (isDisposed.get() || statusPanel == null) {
-            return;
-          }
-          statusPanel.updateCounters(completedCount, totalCount, errorCount);
-        });
-  }
-
-  @Override
-  public void onFuzzerDisposed(int fuzzerId) {
-    // No-op
-  }
-
   /** Creates UI if needed and shows frame. Idempotent - safe to call multiple times. */
   public void showFrame() {
     if (isDisposed.get()) {
@@ -1031,7 +1007,7 @@ public class HttpFuzzerPanel extends JFrame implements FuzzerModelListener {
       if (fuzzerEngine != null) {
         LOGGER.debug("Stopping fuzzer engine during disposal (fallback path)");
 
-        modelListeners.remove(this);
+        modelListeners.remove(selfListener);
         LOGGER.debug("Removed panel from listener list before engine shutdown");
 
         fuzzerEngine.shutdown();
